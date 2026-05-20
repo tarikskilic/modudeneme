@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Home, Shield } from 'lucide-react';
 import ElectricGridBackground from '../components/ElectricGridBackground';
 import { persistAuth, resolveAuth, signUp } from '../lib/auth.js';
@@ -394,6 +394,12 @@ export default function Login() {
                 </button>
               </>
             )}
+          </div>
+
+          <div className="about-link-wrap">
+            <Link to="/nedir" className="about-link">
+              MODÜ-GRID Nedir?
+            </Link>
           </div>
 
           <div className="foot">MODÜ-GRID v1.0 — Akıllı Mikro-Şebeke Yönetim Sistemi</div>

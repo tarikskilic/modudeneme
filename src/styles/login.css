@@ -535,6 +535,42 @@
   opacity: 0.95;
 }
 
+.login-page .about-link-wrap {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.login-page .about-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--primary);
+  text-decoration: none;
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.login-page .about-link:hover {
+  color: var(--text);
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.16);
+}
+
+.login-page .about-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .login-page .foot {
   margin-top: 22px;
   text-align: center;

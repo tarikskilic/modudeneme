@@ -6,6 +6,7 @@ import FinancialSimulator from './pages/FinancialSimulator.jsx';
 import ResidentDashboard from './pages/ResidentDashboard.jsx';
 import CarbonPanel from './pages/CarbonPanel.jsx';
 import Comparison from './pages/Comparison.jsx';
+import About from './pages/About.jsx';
 
 function getAuth() {
   try {
@@ -32,6 +33,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
+      <Route path="/nedir" element={<About />} />
+      <Route path="/about" element={<Navigate to="/nedir" replace />} />
       <Route
         path="/admin"
         element={
