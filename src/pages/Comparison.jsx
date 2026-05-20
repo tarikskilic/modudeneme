@@ -26,7 +26,10 @@ import Navbar from '../components/Navbar.jsx';
 import Sidebar from '../components/Sidebar.jsx';
 import { LEGACY_BASELINE, scaleLegacyBaseline } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
-import { getFinancialMetrics } from '../utils/energyCalculations.js';
+import {
+  getAnnualFinancialMetrics,
+  getFinancialMetrics,
+} from '../utils/energyCalculations.js';
 
 function formatTl(n) {
   return new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 0 }).format(Math.round(n));
@@ -56,6 +59,11 @@ export default function Comparison() {
     [hourlyData, batteryCapacity, apartmentCount, panelCapacity]
   );
 
+  const annual = useMemo(
+    () => getAnnualFinancialMetrics(panelCapacity, batteryCapacity, apartmentCount),
+    [panelCapacity, batteryCapacity, apartmentCount]
+  );
+
   const gridExportDaily = useMemo(
     () => hourlyData.reduce((s, r) => s + r.gridExport, 0),
     [hourlyData]
@@ -65,10 +73,10 @@ export default function Comparison() {
 
   const {
     monthlyProfit,
-    yearlyProfit,
     selfConsumptionRate,
-    roiYears,
   } = metrics;
+
+  const { annualSavings: yearlyProfit, roiYears } = annual;
 
   const roiOk = Number.isFinite(roiYears) && roiYears < 1e6;
   const roiDisplay = roiOk ? roiYears.toFixed(1) : '—';

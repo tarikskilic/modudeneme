@@ -336,3 +336,33 @@ export function getPeriodAnalysis(
     periodMonths,
   };
 }
+
+/**
+ * 12 aylık mevsim ağırlıklı yıllık finansal özet.
+ * ROI ve yıllık projeksiyonlar ay seçiminden bağımsız olmalıdır.
+ */
+export function getAnnualFinancialMetrics(
+  panelCapacity,
+  batteryCapacity,
+  apartmentCount
+) {
+  const period = getPeriodAnalysis(
+    panelCapacity,
+    batteryCapacity,
+    apartmentCount,
+    1,
+    12
+  );
+  const investment =
+    batteryCapacity * INVESTMENT_COSTS.batteryPerKwh +
+    panelCapacity * INVESTMENT_COSTS.panelPerKwp;
+  const annualSavings = period.totalSavings;
+  const roiYears = annualSavings > 0 ? investment / annualSavings : Infinity;
+
+  return {
+    annualSavings,
+    roiYears,
+    averageSelfConsumption: period.averageSelfConsumption,
+    investment,
+  };
+}

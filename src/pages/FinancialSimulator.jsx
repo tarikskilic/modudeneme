@@ -26,13 +26,15 @@ import Sidebar from '../components/Sidebar.jsx';
 import SliderValueInput from '../components/SliderValueInput.jsx';
 import {
   ELECTRICITY_PRICES,
-  INVESTMENT_COSTS,
   LEGACY_BASELINE,
   SLIDER_RANGES,
   scaleLegacyBaseline,
 } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
-import { getFinancialMetrics, getPeriodAnalysis } from '../utils/energyCalculations.js';
+import {
+  getAnnualFinancialMetrics,
+  getFinancialMetrics,
+} from '../utils/energyCalculations.js';
 
 const MONTH_SHORT = [
   'Oca',
@@ -265,29 +267,18 @@ export default function FinancialSimulator() {
     [hourlyData, batteryCapacity, apartmentCount, panelCapacity]
   );
 
-  const investment = useMemo(
-    () =>
-      batteryCapacity * INVESTMENT_COSTS.batteryPerKwh +
-      panelCapacity * INVESTMENT_COSTS.panelPerKwp,
-    [batteryCapacity, panelCapacity]
+  const annual = useMemo(
+    () => getAnnualFinancialMetrics(panelCapacity, batteryCapacity, apartmentCount),
+    [panelCapacity, batteryCapacity, apartmentCount]
   );
 
-  // 12 ay gerçek toplam — seçili ay × 365 ekstrapolasyonu yerine mevsim ağırlıklı
-  const yearlyTrue = useMemo(() => {
-    const period = getPeriodAnalysis(panelCapacity, batteryCapacity, apartmentCount, 1, 12);
-    const annualSavings = period.totalSavings;
-    const trueRoi = annualSavings > 0 ? investment / annualSavings : Infinity;
-    return { annualSavings, trueRoi };
-  }, [panelCapacity, batteryCapacity, apartmentCount, investment]);
-
-  const yearlyTrueRoiFinite =
-    Number.isFinite(yearlyTrue.trueRoi) && yearlyTrue.trueRoi < 1e6;
+  const investment = annual.investment;
+  const roiValid =
+    Number.isFinite(annual.roiYears) && annual.roiYears < 1e6;
 
   const monthlySpring = useSpringNumber(metrics.monthlyProfit);
   const selfSpring = useSpringNumber(metrics.selfConsumptionRate);
-  const roiSpring = useSpringNumber(
-    Number.isFinite(metrics.roiYears) && metrics.roiYears < 1e6 ? metrics.roiYears : 0
-  );
+  const roiSpring = useSpringNumber(roiValid ? annual.roiYears : 0);
 
   const dayTotals = useMemo(() => {
     let dKwh = 0;
@@ -338,7 +329,7 @@ export default function FinancialSimulator() {
       });
     }
 
-    // Pik üretim ayı (Temmuz) — anlık + ROI grafiği için en iyi senaryo
+    // Pik üretim ayı (Temmuz) — aylık metrikler için en iyi senaryo
     setSelectedMonth(7);
   }, [
     apartmentCount,
@@ -349,8 +340,6 @@ export default function FinancialSimulator() {
     setPanelCapacity,
     setSelectedMonth,
   ]);
-
-  const roiValid = Number.isFinite(metrics.roiYears) && metrics.roiYears < 1e6;
 
   const legacyScaled = useMemo(
     () => scaleLegacyBaseline(apartmentCount),
@@ -605,10 +594,13 @@ export default function FinancialSimulator() {
                       </div>
 
                       <div>
-                        <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-foreground">
                           <Calendar className="h-4 w-4 text-warning" strokeWidth={2} />
                           Ay Seçimi
                         </div>
+                        <p className="mb-3 text-[11px] text-muted">
+                          Aylık tasarruf ve öz-tüketim için. ROI tüm yılı kapsar.
+                        </p>
                         <div className="pill-scroll sm:flex-wrap sm:overflow-visible">
                           {MONTH_SHORT.map((m, i) => {
                             const month = i + 1;
@@ -644,7 +636,8 @@ export default function FinancialSimulator() {
                   >
                     <h2 className="text-base font-semibold text-foreground">Finansal Çıktılar</h2>
                     <p className="mt-1 text-xs text-muted">
-                      Slider hareket ettikçe metrikler ve grafik anlık güncellenir
+                      Slider hareket ettikçe metrikler anlık güncellenir. ROI 12 aylık
+                      mevsim ağırlıklı hesaplanır.
                     </p>
 
                     <div className="mt-6 grid grid-cols-1 gap-4">
@@ -711,7 +704,9 @@ export default function FinancialSimulator() {
                             <span className="text-2xl text-muted">—</span>
                           )}
                         </div>
-                        <p className="mt-2 text-sm text-muted-light">Yatırım geri dönüş süresi</p>
+                        <p className="mt-2 text-sm text-muted-light">
+                          12 aylık mevsim ağırlıklı yatırım geri dönüş süresi
+                        </p>
                       </motion.div>
                     </div>
 
@@ -753,25 +748,14 @@ export default function FinancialSimulator() {
                           </span>
                         </div>
                         <p className="mt-2 text-center text-[11px] tabular-nums text-muted-light sm:text-left">
-                          Aylık:{' '}
+                          Seçili ay ({MONTH_SHORT[selectedMonth - 1]}):{' '}
                           <span className="font-semibold text-foreground">
-                            ₺ {formatTl0(metrics.monthlyProfit)}
+                            ₺ {formatTl0(metrics.monthlyProfit)}/ay
                           </span>
                           <span className="mx-2 text-border-strong">|</span>
-                          Yıllık (seçili ay × 365):{' '}
+                          Yıllık toplam (12 ay):{' '}
                           <span className="font-semibold text-success">
-                            ₺ {formatTl0(metrics.yearlyProfit)}
-                          </span>
-                        </p>
-                        <p className="mt-1.5 border-t border-success/15 pt-1.5 text-center text-[11px] tabular-nums text-muted sm:text-left">
-                          12 ay gerçek toplam (mevsim ağırlıklı):{' '}
-                          <span className="font-semibold text-foreground">
-                            ₺ {formatTl0(yearlyTrue.annualSavings)}
-                          </span>
-                          <span className="mx-2 text-border-strong">|</span>
-                          ROI:{' '}
-                          <span className="font-semibold text-foreground">
-                            {yearlyTrueRoiFinite ? `${yearlyTrue.trueRoi.toFixed(1)} Yıl` : '—'}
+                            ₺ {formatTl0(annual.annualSavings)}
                           </span>
                         </p>
                       </div>
@@ -780,7 +764,7 @@ export default function FinancialSimulator() {
                     <LegacyComparisonCard
                       selfRate={metrics.selfConsumptionRate}
                       monthlyProfit={metrics.monthlyProfit}
-                      roiYears={metrics.roiYears}
+                      roiYears={annual.roiYears}
                       roiValid={roiValid}
                       legacyLoss={legacyScaled.monthlyLossTl}
                     />
@@ -788,7 +772,7 @@ export default function FinancialSimulator() {
                 </div>
 
                 {/* BOTTOM ROW — ROI chart */}
-                <ROIChart yearlyProfit={metrics.yearlyProfit} investment={investment} />
+                <ROIChart yearlyProfit={annual.annualSavings} investment={investment} />
               </motion.div>
             )}
           </AnimatePresence>

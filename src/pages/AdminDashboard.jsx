@@ -12,6 +12,7 @@ import { ELECTRICITY_PRICES } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
 import {
   ayAdlari,
+  getAnnualFinancialMetrics,
   getDailyProduction,
   getFinancialMetrics,
 } from '../utils/energyCalculations.js';
@@ -32,6 +33,11 @@ export default function AdminDashboard() {
   const metrics = useMemo(
     () => getFinancialMetrics(hourlyData, batteryCapacity, apartmentCount, panelCapacity),
     [hourlyData, batteryCapacity, apartmentCount, panelCapacity]
+  );
+
+  const annual = useMemo(
+    () => getAnnualFinancialMetrics(panelCapacity, batteryCapacity, apartmentCount),
+    [panelCapacity, batteryCapacity, apartmentCount]
   );
 
   const dailyProdKwh = useMemo(
@@ -63,7 +69,7 @@ export default function AdminDashboard() {
 
   const perAptSubtitle = `Daire başı: ₺${formatTl0(metrics.perApartmentMonthly)}`;
 
-  const roiFinite = Number.isFinite(metrics.roiYears) && metrics.roiYears < 1e6;
+  const roiFinite = Number.isFinite(annual.roiYears) && annual.roiYears < 1e6;
 
   return (
     <div className="min-h-screen bg-background">
@@ -118,11 +124,11 @@ export default function AdminDashboard() {
             <KPICard
               staggerIndex={3}
               title="ROI Süresi"
-              value={roiFinite ? metrics.roiYears.toFixed(1) : '—'}
-              numericValue={roiFinite ? metrics.roiYears : undefined}
+              value={roiFinite ? annual.roiYears.toFixed(1) : '—'}
+              numericValue={roiFinite ? annual.roiYears : undefined}
               decimals={1}
               unit="Yıl"
-              subtitle="Yatırım geri dönüş süresi"
+              subtitle="12 aylık mevsim ağırlıklı"
               icon={Clock}
               color="warning"
             />
