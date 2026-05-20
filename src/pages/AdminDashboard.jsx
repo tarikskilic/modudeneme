@@ -10,6 +10,7 @@ import Sidebar from '../components/Sidebar.jsx';
 import SliderPanel from '../components/SliderPanel.jsx';
 import { ELECTRICITY_PRICES, SCENARIO_PRESETS, isRoiDisplayable } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
+import { METRIC_COPY } from '../constants/metricDefinitions.js';
 import {
   ayAdlari,
   getAnnualFinancialMetrics,
@@ -104,31 +105,31 @@ export default function AdminDashboard() {
               numericValue={dailyProdKwh}
               decimals={0}
               unit="kWh"
-              subtitle="Bugün üretilen yeşil enerji"
+              subtitle={METRIC_COPY.dailyProduction.subtitle}
               icon={Sun}
               color="success"
               trend={productionTrend}
             />
             <KPICard
               staggerIndex={1}
-              title="Öz-Tüketim Oranı"
-              value={metrics.selfConsumptionRate.toFixed(0)}
-              numericValue={metrics.selfConsumptionRate}
+              title={METRIC_COPY.consumptionCoverage.title}
+              value={metrics.consumptionCoverageRate.toFixed(0)}
+              numericValue={metrics.consumptionCoverageRate}
               decimals={0}
-              unit="%"
-              subtitle="Şebekeye kaçmayan enerji oranı"
+              unit={METRIC_COPY.consumptionCoverage.unit}
+              subtitle={METRIC_COPY.consumptionCoverage.subtitle}
               icon={Target}
               color="primary"
-              gaugePercent={metrics.selfConsumptionRate}
+              gaugePercent={metrics.consumptionCoverageRate}
             />
             <KPICard
               staggerIndex={2}
-              title="Aylık Tasarruf"
-              value={formatTl0(metrics.monthlyProfit)}
-              numericValue={metrics.monthlyProfit}
+              title={METRIC_COPY.monthlyNetSavings.title}
+              value={formatTl0(metrics.monthlyNetSavings)}
+              numericValue={metrics.monthlyNetSavings}
               decimals={0}
-              unit="₺"
-              subtitle={perAptSubtitle}
+              unit={METRIC_COPY.monthlyNetSavings.unit}
+              subtitle={`${perAptSubtitle} · ${METRIC_COPY.monthlyNetSavings.subtitle}`}
               icon={TrendingUp}
               color="success"
             />
@@ -168,9 +169,24 @@ export default function AdminDashboard() {
                     { label: 'Batarya → Tüketim', value: dayTotals.battery, color: '#3B82F6' },
                     { label: 'Şebeke Satışı', value: dayTotals.exp, color: '#F59E0B' },
                   ]}
-                  centerPct={metrics.selfConsumptionRate}
+                  centerPct={metrics.selfUseOfProductionRate}
+                  centerLabel={METRIC_COPY.selfUseOfProduction.donutLabel}
                 />
               </div>
+
+              <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                Tüketim karşılama{' '}
+                <span className="font-semibold tabular-nums text-foreground">
+                  %{metrics.consumptionCoverageRate.toFixed(0)}
+                </span>
+                {' · '}
+                Yerinde kullanım{' '}
+                <span className="font-semibold tabular-nums text-foreground">
+                  %{metrics.selfUseOfProductionRate.toFixed(0)}
+                </span>
+                {' '}
+                (üretim dağılımı ortada)
+              </p>
 
               <p className="mt-4 border-t border-border pt-3 text-[11px] tabular-nums text-muted">
                 Tarife:{' '}

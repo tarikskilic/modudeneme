@@ -10,7 +10,11 @@ import {
   YAxis,
 } from 'recharts';
 import { Info } from 'lucide-react';
-import { SUNSHINE_HOURS } from '../utils/energyCalculations.js';
+import {
+  getCarbonMetrics,
+  getFinancialMetrics,
+  getHourlyData,
+} from '../utils/energyCalculations.js';
 
 const MONTH_SHORT = [
   'Oca',
@@ -49,10 +53,15 @@ function barGradientId(month) {
   return 'url(#co2BarMid)';
 }
 
-function co2ForMonth(panelCapacity, month, selfConsumptionRate) {
-  const h = SUNSHINE_HOURS[month] ?? SUNSHINE_HOURS[7];
-  const r = selfConsumptionRate / 100;
-  return panelCapacity * h * r * 0.5 * 30;
+function co2ForMonth(panelCapacity, apartmentCount, batteryCapacity, month) {
+  const hourly = getHourlyData(panelCapacity, apartmentCount, batteryCapacity, month);
+  const financial = getFinancialMetrics(
+    hourly,
+    batteryCapacity,
+    apartmentCount,
+    panelCapacity
+  );
+  return getCarbonMetrics(financial.solarUsedKwh).monthlyCO2Saved;
 }
 
 function CarbonTooltip({ active, payload }) {
@@ -70,11 +79,16 @@ function CarbonTooltip({ active, payload }) {
   );
 }
 
-export default function CarbonChart({ panelCapacity, selfConsumptionRate, selectedMonth }) {
+export default function CarbonChart({
+  panelCapacity,
+  apartmentCount,
+  batteryCapacity,
+  selectedMonth,
+}) {
   const data = useMemo(() => {
     return Array.from({ length: 12 }, (_, i) => {
       const month = i + 1;
-      const co2 = co2ForMonth(panelCapacity, month, selfConsumptionRate);
+      const co2 = co2ForMonth(panelCapacity, apartmentCount, batteryCapacity, month);
       return {
         month,
         label: MONTH_SHORT[i],
@@ -83,7 +97,7 @@ export default function CarbonChart({ panelCapacity, selfConsumptionRate, select
         selected: month === selectedMonth,
       };
     });
-  }, [panelCapacity, selfConsumptionRate, selectedMonth]);
+  }, [panelCapacity, apartmentCount, batteryCapacity, selectedMonth]);
 
   return (
     <div>

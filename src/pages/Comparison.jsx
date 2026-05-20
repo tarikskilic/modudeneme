@@ -120,7 +120,7 @@ export default function Comparison() {
         ? `Yatırım ${roiDisplay} yılda kendini amorti eder`
         : 'Yatırım amortismanı için pozitif yıllık kâr gerekir',
       ten: `10 yılda ${formatTlCompact(fark10)} ek getiri`,
-      scr: `%${selfConsumptionRate.toFixed(0)} öz-tüketim oranı`,
+      scr: `%${selfConsumptionRate.toFixed(0)} tüketim karşılama`,
       law: '2 Nisan mevzuatına tam uyum',
       v2g: 'V2G entegrasyonuna hazır altyapı',
       lora: 'LoRaWAN ile internet bağımsız haberleşme',

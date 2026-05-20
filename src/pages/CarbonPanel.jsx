@@ -87,16 +87,14 @@ export default function CarbonPanel() {
     [hourlyData, batteryCapacity, apartmentCount, panelCapacity]
   );
 
-  const chartScr = metrics.selfConsumptionRate;
-
   const dailyProduction = useMemo(
     () => getDailyProduction(panelCapacity, selectedMonth),
     [panelCapacity, selectedMonth]
   );
 
   const carbon = useMemo(
-    () => getCarbonMetrics(dailyProduction, chartScr),
-    [dailyProduction, chartScr]
+    () => getCarbonMetrics(metrics.solarUsedKwh),
+    [metrics.solarUsedKwh]
   );
 
   // Enerji mix — saatlik veriden (Σ directUse / Σ consumption gibi)
@@ -132,27 +130,28 @@ export default function CarbonPanel() {
     };
   }, [panelCapacity, batteryCapacity, apartmentCount]);
 
-  const greenEnergyPct = Math.round(chartScr);
+  const coveragePct = metrics.consumptionCoverageRate;
+  const greenEnergyPct = Math.round(coveragePct);
 
-  // Karbon yoğunluğu karşılaştırması — geleneksel scaled, MODÜ-GRID = geleneksel × (1 - selfCons/100)
+  // Karbon yoğunluğu karşılaştırması — geleneksel scaled, MODÜ-GRID = geleneksel × (1 - tüketim karşılama/100)
   const carbonComparison = useMemo(() => {
     const legacyScaled = scaleLegacyBaseline(apartmentCount);
     const legacy = legacyScaled.monthlyCo2EmissionKg;
-    const reductionFactor = Math.min(1, Math.max(0, chartScr / 100));
+    const reductionFactor = Math.min(1, Math.max(0, coveragePct / 100));
     const modu = legacy * (1 - reductionFactor);
     const reductionPct = legacy > 0 ? ((legacy - modu) / legacy) * 100 : 0;
     return { legacy, modu, reductionPct };
-  }, [apartmentCount, chartScr]);
+  }, [apartmentCount, coveragePct]);
 
   // Sürdürülebilirlik skoru — spec §17 formülü
   const sustainability = useMemo(() => {
     const panelBonus = panelCapacity >= 150 && panelCapacity <= 350 ? 100 : 50;
     const score = Math.min(
       1000,
-      chartScr * 5 + (batteryCapacity / BATTERY_TARGET_KWH) * 200 + panelBonus + 100 + 60
+      coveragePct * 5 + (batteryCapacity / BATTERY_TARGET_KWH) * 200 + panelBonus + 100 + 60
     );
     const subScores = [
-      { label: 'Öz-Tüketim Oranı', value: Math.round(chartScr * 0.85), status: 'success' },
+      { label: 'Tüketim Karşılama', value: Math.round(coveragePct * 0.85), status: 'success' },
       {
         label: 'Batarya Kullanımı',
         value: Math.round(Math.min(100, (batteryCapacity / BATTERY_TARGET_KWH) * 100 * 0.78)),
@@ -160,14 +159,14 @@ export default function CarbonPanel() {
       },
       {
         label: 'Şebeke Bağımsızlığı',
-        value: Math.round(chartScr * 0.72),
+        value: Math.round(coveragePct * 0.72),
         status: 'success',
       },
       { label: 'Mevzuat Uyumu', value: 100, status: 'glow' },
       { label: 'V2G Hazırlığı', value: 60, status: 'future' },
     ];
     return { score: Math.round(score), subScores };
-  }, [chartScr, batteryCapacity, panelCapacity]);
+  }, [coveragePct, batteryCapacity, panelCapacity]);
 
   const scorePct = (sustainability.score / 1000) * 100;
 
@@ -261,7 +260,8 @@ export default function CarbonPanel() {
             >
               <CarbonChart
                 panelCapacity={panelCapacity}
-                selfConsumptionRate={chartScr}
+                apartmentCount={apartmentCount}
+                batteryCapacity={batteryCapacity}
                 selectedMonth={selectedMonth}
               />
             </motion.section>

@@ -190,9 +190,11 @@ export function getFinancialMetrics(
   let totalDirect = 0;
   let totalBatteryUse = 0;
   let totalConsumption = 0;
+  let totalProduction = 0;
 
   for (const row of hourlyData) {
     totalConsumption += row.consumption;
+    totalProduction += row.production;
     totalDirect += row.directUse;
     totalBatteryUse += row.batteryUse;
     gridExportRevenue += row.gridExport * ELECTRICITY_PRICES.gridExport;
@@ -201,39 +203,66 @@ export function getFinancialMetrics(
     batterySavings += row.batteryUse * ELECTRICITY_PRICES.directAvoided;
   }
 
+  const solarUsedKwh = totalDirect + totalBatteryUse;
+
   /**
-   * Net tasarruf = öz-tüketim değeri + şebeke satış geliri.
-   * gridImportCost ayrıca düşülmez — direct/battery savings zaten şebeke alışından
-   * kaçınılan kWh'ı temsil eder; çift sayım ROI'yi yapay negatife çeker.
+   * Net tasarruf (GES yok senaryosuna göre):
+   * bazFatura = tüm tüketim × ithal tarife
+   * gerçekŞebeke = ithal maliyet − satış geliri
+   * net = bazFatura − gerçekŞebeke
+   * ≡ yerinde kullanım değeri + satış geliri (import maliyeti ayrıca düşülmez — çift sayım olur)
    */
-  const dailyProfit = directSavings + batterySavings + gridExportRevenue;
-  const monthlyProfit = dailyProfit * 30;
-  const selfConsumptionRate =
-    totalConsumption > 0
-      ? ((totalDirect + totalBatteryUse) / totalConsumption) * 100
-      : 0;
+  const baselineDailyCost = totalConsumption * ELECTRICITY_PRICES.gridImport;
+  const actualDailyGridCost = gridImportCost - gridExportRevenue;
+  const dailyNetSavings = directSavings + batterySavings + gridExportRevenue;
+  const monthlyNetSavings = dailyNetSavings * 30;
+
+  if (import.meta.env?.DEV) {
+    const drift = Math.abs(dailyNetSavings - (baselineDailyCost - actualDailyGridCost));
+    if (drift > 0.05) {
+      console.warn('[MODÜ-GRID] Finansal tutarsızlık (günlük net tasarruf)', { drift });
+    }
+  }
+
+  const consumptionCoverageRate =
+    totalConsumption > 0 ? (solarUsedKwh / totalConsumption) * 100 : 0;
+  const selfUseOfProductionRate =
+    totalProduction > 0 ? (solarUsedKwh / totalProduction) * 100 : 0;
+
+  /** Deck / CANONICAL_SCENARIO ile uyumlu: tüketim karşılama oranı (yıllık ort. ~%37) */
+  const selfConsumptionRate = consumptionCoverageRate;
 
   return {
-    dailyProfit,
-    monthlyProfit,
+    solarUsedKwh,
+    totalProduction,
+    totalConsumption,
+    consumptionCoverageRate,
+    selfUseOfProductionRate,
     selfConsumptionRate,
-    perApartmentMonthly: apartmentCount > 0 ? monthlyProfit / apartmentCount : 0,
+    dailyNetSavings,
+    monthlyNetSavings,
+    /** @deprecated dailyNetSavings ile aynı — geriye dönük uyumluluk */
+    dailyProfit: dailyNetSavings,
+    /** @deprecated monthlyNetSavings ile aynı */
+    monthlyProfit: monthlyNetSavings,
+    perApartmentMonthly: apartmentCount > 0 ? monthlyNetSavings / apartmentCount : 0,
+    baselineDailyCost,
+    actualDailyGridCost,
     gridExportRevenue,
     gridImportCost,
     directSavings,
     batterySavings,
+    gridExportKwh: hourlyData.reduce((s, r) => s + r.gridExport, 0),
+    gridImportKwh: hourlyData.reduce((s, r) => s + r.gridImport, 0),
   };
 }
 
 /**
- * @param {number} dailyProduction
- * @param {number} selfConsumptionRate percent
+ * @param {number} dailySolarUsedKwh GES+BESS ile yerinde kullanılan günlük kWh
  */
-export function getCarbonMetrics(dailyProduction, selfConsumptionRate) {
-  const rate = selfConsumptionRate / 100;
-  /** kg CO₂ — formula: dailyProduction × öz-tüketim × 0,5 kg/kWh × 30 gün */
-  const monthlyCO2Saved =
-    dailyProduction * rate * CO2_FACTORS.perKwhKg * 30;
+export function getCarbonMetrics(dailySolarUsedKwh) {
+  /** kg CO₂ — yerinde kullanılan kWh × 0,45 kg/kWh × 30 gün */
+  const monthlyCO2Saved = dailySolarUsedKwh * CO2_FACTORS.perKwhKg * 30;
   return {
     monthlyCO2Saved,
     yearlyCO2Saved: monthlyCO2Saved * 12,
@@ -293,10 +322,7 @@ export function getPeriodAnalysis(
       apartmentCount,
       panelCapacity
     );
-    const carbon = getCarbonMetrics(
-      dailyProduction,
-      financial.selfConsumptionRate
-    );
+    const carbon = getCarbonMetrics(financial.solarUsedKwh);
 
     cumulativeSavings += financial.monthlyProfit;
     cumulativeCO2 += carbon.monthlyCO2Saved;

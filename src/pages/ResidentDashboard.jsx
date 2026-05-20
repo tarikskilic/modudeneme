@@ -107,7 +107,7 @@ export default function ResidentDashboard() {
     [hourlyData, batteryCapacity, apartmentCount, panelCapacity]
   );
 
-  const { selfConsumptionRate } = metrics;
+  const { consumptionCoverageRate, solarUsedKwh } = metrics;
 
   const greenShare = useMemo(() => {
     const nApt = Math.max(1, apartmentCount);
@@ -124,14 +124,14 @@ export default function ResidentDashboard() {
         count += 1;
       }
     }
-    return count ? sum / count : selfConsumptionRate;
-  }, [hourlyData, apartmentCount, variation, selfConsumptionRate]);
+    return count ? sum / count : consumptionCoverageRate;
+  }, [hourlyData, apartmentCount, variation, consumptionCoverageRate]);
 
   const baseMonthlyKwh = getDailyConsumption(1) * 30;
   const daireTüketimi = baseMonthlyKwh * variation;
   const lastMonthKwh = daireTüketimi / (1 + consTrendPct / 100);
   const daireTasarrufu =
-    (selfConsumptionRate / 100) * daireTüketimi * ELECTRICITY_PRICES.directAvoided;
+    (consumptionCoverageRate / 100) * daireTüketimi * ELECTRICITY_PRICES.directAvoided;
 
   // Aylık fatura tahmini: tüketim × alış-tarifesi − tasarruf (net ödenecek)
   const baselineFaturaTl = daireTüketimi * ELECTRICITY_PRICES.gridImport;
@@ -151,12 +151,11 @@ export default function ResidentDashboard() {
 
   // Bu ay engellenen CO₂ — daire payı (sitenin engellediği / daire × variation)
   const aptMonthlyCO2 = useMemo(() => {
-    const dailyProd = getDailyProduction(panelCapacity, selectedMonth);
-    const c = getCarbonMetrics(dailyProd, selfConsumptionRate);
+    const c = getCarbonMetrics(solarUsedKwh);
     return apartmentCount > 0
       ? (c.monthlyCO2Saved / apartmentCount) * variation
       : 0;
-  }, [panelCapacity, selectedMonth, selfConsumptionRate, apartmentCount, variation]);
+  }, [solarUsedKwh, apartmentCount, variation]);
 
   const blockIndex = useMemo(() => {
     const n = blockCount > 0 ? blockCount : 1;
@@ -206,8 +205,8 @@ export default function ResidentDashboard() {
   const blockSelfRate = useMemo(() => {
     const offset = blockIndex * 3.7;
     const v = (Math.sin(offset) + 1) / 2;
-    return Math.round(clamp(selfConsumptionRate - 2 + v * 4, 68, 82));
-  }, [blockIndex, selfConsumptionRate]);
+    return Math.round(clamp(consumptionCoverageRate - 2 + v * 4, 68, 82));
+  }, [blockIndex, consumptionCoverageRate]);
 
   const snapshotHour = DEMO_SNAPSHOT_HOUR;
   const gridStatus = gridStatusLabel(snapshotHour);

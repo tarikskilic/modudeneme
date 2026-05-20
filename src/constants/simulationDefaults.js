@@ -187,6 +187,7 @@ export const CANONICAL_SCENARIO = {
   batteryScope: 'Ortak alan peak shaving (18:00–23:00)',
   apartmentKwhPerDay: APARTMENT_KWH_PER_DAY,
   commonAreaKwhPerAptPerDay: COMMON_AREA_KWH_PER_APT,
+  /** Yıllık ort. tüketim karşılama oranı (getFinancialMetrics.consumptionCoverageRate) */
   selfConsumptionRatePct: 37,
   annualSavingsTl: 776_364,
   tariffs: {

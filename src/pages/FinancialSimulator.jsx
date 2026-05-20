@@ -288,7 +288,7 @@ export default function FinancialSimulator() {
   const roiValid = isRoiDisplayable(annual.roiYears);
 
   const monthlySpring = useSpringNumber(metrics.monthlyProfit);
-  const selfSpring = useSpringNumber(metrics.selfConsumptionRate);
+  const selfSpring = useSpringNumber(metrics.consumptionCoverageRate);
   const roiSpring = useSpringNumber(roiValid ? annual.roiYears : 0);
 
   const dayTotals = useMemo(() => {
@@ -612,7 +612,7 @@ export default function FinancialSimulator() {
                           Ay Seçimi
                         </div>
                         <p className="mb-3 text-[11px] text-muted">
-                          Aylık tasarruf ve öz-tüketim için. ROI tüm yılı kapsar.
+                          Net tasarruf ve tüketim karşılama. ROI 12 aylık simülasyondan.
                         </p>
                         <div className="pill-scroll sm:flex-wrap sm:overflow-visible">
                           {MONTH_SHORT.map((m, i) => {
@@ -683,7 +683,7 @@ export default function FinancialSimulator() {
                         <div className="flex items-center justify-between">
                           <Target className="h-6 w-6 text-primary" strokeWidth={2} />
                           <span className="text-[11px] font-semibold uppercase tracking-wide text-blue-400">
-                            Öz-Tüketim Oranı
+                            Tüketim Karşılama
                           </span>
                         </div>
                         <div className="mt-2 text-3xl font-black tracking-tight text-primary sm:text-4xl md:text-[42px]">
@@ -755,7 +755,7 @@ export default function FinancialSimulator() {
                       <div className="mt-3 rounded-xl border border-success/30 bg-success/[0.08] px-4 py-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <span className="text-sm font-bold text-foreground">
-                            Toplam Günlük Kâr
+                            Günlük Net Tasarruf
                           </span>
                           <span className="text-xl font-black tabular-nums text-success sm:text-2xl">
                             {formatTl2(metrics.dailyProfit)} ₺

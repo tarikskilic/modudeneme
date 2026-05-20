@@ -114,7 +114,7 @@ export const IMPACT_KPIS = [
 ];
 
 export const IMPACT_FOOTNOTE =
-  'Pilot ELYSIUM konfigürasyonunda simülasyon motoru öz-tüketim oranını ~%37 seviyesinde gösterir. %75 şebeke bağımsızlığı ürün hedefidir; yıllık tasarruf ve ROI rakamları canlı simülatör çıktılarıdır.';
+  'Pilot ELYSIUM konfigürasyonunda simülasyon motoru tüketim karşılama oranını ~%37 seviyesinde gösterir (GES+BESS ile karşılanan site tüketimi). %75 şebeke bağımsızlığı ürün hedefidir; yıllık net tasarruf ve ROI rakamları canlı simülatör çıktılarıdır.';
 
 /** ELYSIUM_MODU-GRID.pptx slide 9 — soldan sağa portrait sırası */
 export const TEAM = [
