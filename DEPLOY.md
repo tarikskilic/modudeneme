@@ -11,7 +11,32 @@ Statik Vite build. Bu VPS'te **port 80/443 Traefik (Docker)** kullanıyor — ho
 
 DNS yayılımı 5–30 dk sürebilir.
 
-## Deploy (Traefik — önerilen)
+## Otomatik deploy (GitHub Actions)
+
+`main` branch’e her push → VPS’e deploy.
+
+### GitHub Secrets (repo → Settings → Secrets → Actions)
+
+| Secret | Değer |
+|--------|--------|
+| `VPS_SSH_KEY` | `deploy` kullanıcısının **private** SSH key (tam içerik) |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key |
+| `VPS_HOST` | *(opsiyonel)* `72.62.95.96` |
+| `VPS_USER` | *(opsiyonel)* `deploy` |
+
+Deploy key oluşturmak (VPS’te bir kez):
+
+```bash
+ssh yunus-vps
+# deploy kullanıcısında ~/.ssh/authorized_keys içine GitHub Actions public key ekle
+```
+
+Workflow: `.github/workflows/deploy.yml`
+
+Manuel tetikleme: GitHub → Actions → **Deploy to VPS** → Run workflow
+
+## Manuel deploy (lokal)
 
 ```bash
 chmod +x deploy/deploy-traefik.sh

@@ -1,0 +1,79 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.VPS_HOST }}
+      DEPLOY_USER: ${{ secrets.VPS_USER }}
+      APP_PATH: ${{ secrets.VPS_PATH }}
+      COMPOSE_DIR: ${{ secrets.VPS_COMPOSE_DIR }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install and build
+        run: npm ci && npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Resolve deploy target
+        id: target
+        run: |
+          echo "host=${DEPLOY_HOST:-72.62.95.96}" >> "$GITHUB_OUTPUT"
+          echo "user=${DEPLOY_USER:-deploy}" >> "$GITHUB_OUTPUT"
+          echo "app_path=${APP_PATH:-/var/www/modu-grid}" >> "$GITHUB_OUTPUT"
+          echo "compose_dir=${COMPOSE_DIR:-/home/deploy/modu-grid-docker}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ steps.target.outputs.host }}" >> ~/.ssh/known_hosts
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Prepare release archive
+        run: |
+          tar czf release.tar.gz dist deploy/docker/docker-compose.yml deploy/docker/nginx-spa.conf
+
+      - name: Upload and apply on VPS
+        env:
+          SSH_CMD: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes
+        run: |
+          HOST="${{ steps.target.outputs.host }}"
+          USER="${{ steps.target.outputs.user }}"
+          APP_PATH="${{ steps.target.outputs.app_path }}"
+          COMPOSE_DIR="${{ steps.target.outputs.compose_dir }}"
+          TARGET="${USER}@${HOST}"
+
+          $SSH_CMD "$TARGET" "sudo mkdir -p '${APP_PATH}' '${COMPOSE_DIR}' && sudo chown -R ${USER}:www-data '${APP_PATH}'"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes release.tar.gz "${TARGET}:/tmp/modu-grid-release.tar.gz"
+          $SSH_CMD "$TARGET" "set -eu
+            cd /tmp
+            rm -rf modu-grid-release && mkdir modu-grid-release
+            tar xzf modu-grid-release.tar.gz -C modu-grid-release
+            rsync -a --delete modu-grid-release/dist/ '${APP_PATH}/'
+            cp modu-grid-release/deploy/docker/docker-compose.yml '${COMPOSE_DIR}/'
+            cp modu-grid-release/deploy/docker/nginx-spa.conf '${COMPOSE_DIR}/'
+            rm -rf modu-grid-release modu-grid-release.tar.gz
+            cd '${COMPOSE_DIR}'
+            docker compose up -d --force-recreate
+            echo OK: https://modu-grid.com"

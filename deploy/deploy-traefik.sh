@@ -37,8 +37,10 @@ scp $SSH_OPTS deploy/docker/nginx-spa.conf deploy/docker/docker-compose.yml \
 echo "==> Recreate container (TLS labels)..."
 ssh $SSH_OPTS "$SSH_TARGET" "cd '${REMOTE_COMPOSE}' && docker compose up -d --force-recreate"
 
-echo "==> Restart Traefik (ACME yeniden dene)..."
-ssh $SSH_OPTS "$SSH_TARGET" "docker restart n8n_traefik_1 2>/dev/null || docker ps --format '{{.Names}}' | grep -i traefik | head -1 | xargs -r docker restart"
+if [[ "${RESTART_TRAEFIK:-}" == "1" ]]; then
+  echo "==> Restart Traefik..."
+  ssh $SSH_OPTS "$SSH_TARGET" "docker restart n8n_traefik_1 2>/dev/null || true"
+fi
 
-echo "==> Done. DNS: modu-grid.com A → ${VPS_HOST}"
+echo "==> Done: https://modu-grid.com"
 echo "    Site: https://modu-grid.com (Traefik Let's Encrypt, birkaç dk sürebilir)"
