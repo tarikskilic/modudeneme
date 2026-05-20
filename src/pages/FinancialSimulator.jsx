@@ -27,9 +27,13 @@ import SliderValueInput from '../components/SliderValueInput.jsx';
 import {
   ELECTRICITY_PRICES,
   LEGACY_BASELINE,
+  BATTERY_TARGET_KWH,
+  SCENARIO_PRESETS,
   SLIDER_RANGES,
+  isRoiDisplayable,
   scaleLegacyBaseline,
 } from '../constants/simulationDefaults.js';
+import CostScenarioSelector from '../components/CostScenarioSelector.jsx';
 import { useSimulation } from '../context/SimulationContext.jsx';
 import {
   getAnnualFinancialMetrics,
@@ -58,8 +62,8 @@ const APT = SLIDER_RANGES.apartmentCount;
 
 const BATTERY_SCENARIOS = [
   { v: 0, title: 'Bataryasız', desc: 'Sadece Akıllı Yönetim' },
-  { v: 250, title: 'Minimum Optimum', desc: 'Kısmi depolama' },
-  { v: 500, title: 'Tam Verimli', desc: 'MODÜ-GRID Hedefi' },
+  { v: BATTERY_TARGET_KWH, title: 'MODÜ-GRID Hedefi', desc: 'LiFePO4 BESS — proje tasarımı' },
+  { v: 90, title: 'Genişletilmiş', desc: '2× hedef kapasite senaryosu' },
 ];
 
 function clamp(n, min, max) {
@@ -112,9 +116,9 @@ function panelZoneMessage(zone) {
 
 function batteryScenarioHint(kwh) {
   if (kwh === 0) return 'Sadece akıllı yönetim — anında kâr, düşük verim';
-  if (kwh < 250) return 'Kısmi depolama — orta verimlilik';
-  if (kwh < 500) return 'Minimum optimum — iyi verimlilik';
-  return 'Tam kapasite — MODÜ-GRID hedefi, maksimum kâr';
+  if (kwh < BATTERY_TARGET_KWH) return 'Hedef altı depolama — öz-tüketim sınırlı';
+  if (kwh === BATTERY_TARGET_KWH) return 'Proje hedefi — LiFePO4 BESS optimizasyonu';
+  return 'Hedef üstü kapasite — ek yatırım, marjinal kazanç';
 }
 
 function panelSliderTheme(zone) {
@@ -259,6 +263,8 @@ export default function FinancialSimulator() {
     selectedMonth,
     setSelectedMonth,
     hourlyData,
+    costScenario,
+    investmentCosts,
   } = useSimulation();
 
   const metrics = useMemo(
@@ -268,13 +274,18 @@ export default function FinancialSimulator() {
   );
 
   const annual = useMemo(
-    () => getAnnualFinancialMetrics(panelCapacity, batteryCapacity, apartmentCount),
-    [panelCapacity, batteryCapacity, apartmentCount]
+    () =>
+      getAnnualFinancialMetrics(
+        panelCapacity,
+        batteryCapacity,
+        apartmentCount,
+        investmentCosts
+      ),
+    [panelCapacity, batteryCapacity, apartmentCount, investmentCosts]
   );
 
   const investment = annual.investment;
-  const roiValid =
-    Number.isFinite(annual.roiYears) && annual.roiYears < 1e6;
+  const roiValid = isRoiDisplayable(annual.roiYears);
 
   const monthlySpring = useSpringNumber(metrics.monthlyProfit);
   const selfSpring = useSpringNumber(metrics.selfConsumptionRate);
@@ -299,7 +310,7 @@ export default function FinancialSimulator() {
     batteryCapacity <= 0 ? 0 : (batteryCapacity / BATTERY.max) * 100;
 
   const batteryTheme = batterySliderTheme(batteryCapacity);
-  const isSystemOptimal = pZone === 'ok' && batteryCapacity >= 250;
+  const isSystemOptimal = pZone === 'ok' && batteryCapacity === BATTERY_TARGET_KWH;
 
   const optimalCfg = useCallback(() => {
     const startP = panelCapacity;
@@ -313,7 +324,7 @@ export default function FinancialSimulator() {
         setPanelCapacity(snap(v, PANEL.step, PANEL.min, PANEL.max)),
     });
 
-    animate(startB, 500, {
+    animate(startB, BATTERY_TARGET_KWH, {
       duration: 0.95,
       ease: [0.22, 1, 0.36, 1],
       onUpdate: (v) =>
@@ -402,6 +413,8 @@ export default function FinancialSimulator() {
               </button>
             ))}
           </nav>
+
+          <CostScenarioSelector className="rounded-xl border border-border bg-card p-4 sm:p-5" />
 
           <AnimatePresence mode="wait">
             {simTab === 'period' ? (
@@ -524,7 +537,7 @@ export default function FinancialSimulator() {
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           {BATTERY_SCENARIOS.map(({ v, title, desc }) => {
                             const active = batteryCapacity === v;
-                            const isTarget = v === 500;
+                            const isTarget = v === BATTERY_TARGET_KWH;
                             return (
                               <button
                                 key={v}
@@ -705,7 +718,8 @@ export default function FinancialSimulator() {
                           )}
                         </div>
                         <p className="mt-2 text-sm text-muted-light">
-                          12 aylık mevsim ağırlıklı yatırım geri dönüş süresi
+                          12 aylık mevsim ağırlıklı ·{' '}
+                          {SCENARIO_PRESETS[costScenario]?.label ?? 'Pilot'} CAPEX
                         </p>
                       </motion.div>
                     </div>

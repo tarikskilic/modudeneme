@@ -9,7 +9,8 @@ import {
   Sun,
 } from 'lucide-react';
 import { useSimulation } from '../context/SimulationContext.jsx';
-import { SLIDER_RANGES } from '../constants/simulationDefaults.js';
+import { BATTERY_TARGET_KWH, SLIDER_RANGES } from '../constants/simulationDefaults.js';
+import CostScenarioSelector from './CostScenarioSelector.jsx';
 import SliderValueInput from './SliderValueInput.jsx';
 
 const PANEL = SLIDER_RANGES.panelCapacity;
@@ -70,8 +71,8 @@ export default function SliderPanel() {
   const batteryPresets = useMemo(
     () => [
       { v: 0, label: 'Bataryasız' },
-      { v: 250, label: 'Minimum Optimum' },
-      { v: 500, label: 'MODÜ-GRID Hedefi' },
+      { v: BATTERY_TARGET_KWH, label: 'MODÜ-GRID Hedefi' },
+      { v: 90, label: 'Genişletilmiş' },
     ],
     []
   );
@@ -182,14 +183,14 @@ export default function SliderPanel() {
                   onClick={() => setBatteryCapacity(p.v)}
                   className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
                     active
-                      ? p.v === 500
+                      ? p.v === BATTERY_TARGET_KWH
                         ? 'border-success/60 bg-success/15 text-success shadow-[0_0_20px_rgba(16,185,129,0.22)]'
                         : 'border-primary/60 bg-primary/10 text-primary'
                       : 'border-border bg-background/40 text-muted hover:border-border hover:text-foreground'
                   }`}
                 >
                   {p.label}
-                  {p.v === 500 && active ? (
+                  {p.v === BATTERY_TARGET_KWH && active ? (
                     <CheckCircle2 className="ml-1 inline h-3 w-3 align-text-bottom" />
                   ) : null}
                 </button>
@@ -322,6 +323,8 @@ export default function SliderPanel() {
             ))}
           </select>
         </div>
+
+        <CostScenarioSelector className="border-t border-border pt-5" />
       </div>
     </motion.section>
   );

@@ -24,7 +24,7 @@ import {
 import HardwareStatusBanner from '../components/HardwareStatusBanner.jsx';
 import Navbar from '../components/Navbar.jsx';
 import Sidebar from '../components/Sidebar.jsx';
-import { LEGACY_BASELINE, scaleLegacyBaseline } from '../constants/simulationDefaults.js';
+import { LEGACY_BASELINE, isRoiDisplayable, scaleLegacyBaseline } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
 import {
   getAnnualFinancialMetrics,
@@ -52,7 +52,8 @@ const rowVariant = {
 const INVESTMENT_BULLETS = ['roi', 'ten', 'scr', 'law', 'v2g', 'lora'];
 
 export default function Comparison() {
-  const { panelCapacity, batteryCapacity, apartmentCount, hourlyData } = useSimulation();
+  const { panelCapacity, batteryCapacity, apartmentCount, hourlyData, investmentCosts } =
+    useSimulation();
 
   const metrics = useMemo(
     () => getFinancialMetrics(hourlyData, batteryCapacity, apartmentCount, panelCapacity),
@@ -60,8 +61,14 @@ export default function Comparison() {
   );
 
   const annual = useMemo(
-    () => getAnnualFinancialMetrics(panelCapacity, batteryCapacity, apartmentCount),
-    [panelCapacity, batteryCapacity, apartmentCount]
+    () =>
+      getAnnualFinancialMetrics(
+        panelCapacity,
+        batteryCapacity,
+        apartmentCount,
+        investmentCosts
+      ),
+    [panelCapacity, batteryCapacity, apartmentCount, investmentCosts]
   );
 
   const gridExportDaily = useMemo(
@@ -78,7 +85,7 @@ export default function Comparison() {
 
   const { annualSavings: yearlyProfit, roiYears } = annual;
 
-  const roiOk = Number.isFinite(roiYears) && roiYears < 1e6;
+  const roiOk = isRoiDisplayable(roiYears);
   const roiDisplay = roiOk ? roiYears.toFixed(1) : '—';
   const legacyEff = LEGACY_BASELINE.profitEfficiencyVsModu;
 

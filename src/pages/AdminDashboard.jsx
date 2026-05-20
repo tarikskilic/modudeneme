@@ -8,7 +8,7 @@ import KPICard from '../components/KPICard.jsx';
 import Navbar from '../components/Navbar.jsx';
 import Sidebar from '../components/Sidebar.jsx';
 import SliderPanel from '../components/SliderPanel.jsx';
-import { ELECTRICITY_PRICES } from '../constants/simulationDefaults.js';
+import { ELECTRICITY_PRICES, SCENARIO_PRESETS, isRoiDisplayable } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
 import {
   ayAdlari,
@@ -28,6 +28,8 @@ export default function AdminDashboard() {
     apartmentCount,
     selectedMonth,
     hourlyData,
+    investmentCosts,
+    costScenario,
   } = useSimulation();
 
   const metrics = useMemo(
@@ -36,8 +38,14 @@ export default function AdminDashboard() {
   );
 
   const annual = useMemo(
-    () => getAnnualFinancialMetrics(panelCapacity, batteryCapacity, apartmentCount),
-    [panelCapacity, batteryCapacity, apartmentCount]
+    () =>
+      getAnnualFinancialMetrics(
+        panelCapacity,
+        batteryCapacity,
+        apartmentCount,
+        investmentCosts
+      ),
+    [panelCapacity, batteryCapacity, apartmentCount, investmentCosts]
   );
 
   const dailyProdKwh = useMemo(
@@ -69,7 +77,10 @@ export default function AdminDashboard() {
 
   const perAptSubtitle = `Daire başı: ₺${formatTl0(metrics.perApartmentMonthly)}`;
 
-  const roiFinite = Number.isFinite(annual.roiYears) && annual.roiYears < 1e6;
+  const scenarioLabel =
+    SCENARIO_PRESETS[costScenario]?.label ?? 'Pilot';
+
+  const roiFinite = isRoiDisplayable(annual.roiYears);
 
   return (
     <div className="min-h-screen bg-background">
@@ -128,7 +139,7 @@ export default function AdminDashboard() {
               numericValue={roiFinite ? annual.roiYears : undefined}
               decimals={1}
               unit="Yıl"
-              subtitle="12 aylık mevsim ağırlıklı"
+              subtitle={`${scenarioLabel} CAPEX · 12 ay`}
               icon={Clock}
               color="warning"
             />

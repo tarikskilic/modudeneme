@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Shield } from 'lucide-react';
 import ElectricGridBackground from '../components/ElectricGridBackground';
-import { persistAuth, resolveAuth } from '../lib/auth.js';
+import { persistAuth, resolveAuth, signUp } from '../lib/auth.js';
 import '../styles/login.css';
 
 const DEMO_ACCOUNTS = [
@@ -31,10 +31,13 @@ function pad(n) {
 export default function Login() {
   const navigate = useNavigate();
   const [clock, setClock] = useState('--:--:--');
-  const [roleTab, setRoleTab] = useState('admin');
+  const [authMode, setAuthMode] = useState('login');
+  const [roleTab, setRoleTab] = useState('resident');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
   const [capsOn, setCapsOn] = useState(false);
   const [error, setError] = useState('');
   const [hwPhase, setHwPhase] = useState('search');
@@ -67,11 +70,45 @@ export default function Login() {
     [navigate]
   );
 
+  const switchAuthMode = (mode) => {
+    if (submitState !== 'idle') return;
+    setAuthMode(mode);
+    setError('');
+    setSuccessMsg('');
+    setConfirmPassword('');
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (submitState !== 'idle') return;
 
     setError('');
+    setSuccessMsg('');
+
+    if (authMode === 'signup') {
+      if (password !== confirmPassword) {
+        setError('Şifreler eşleşmiyor');
+        return;
+      }
+
+      const result = await signUp(username, password, roleTab);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+
+      if (result.auth) {
+        performLogin(result.auth);
+        return;
+      }
+
+      setSuccessMsg(result.message ?? 'Kayıt tamamlandı.');
+      switchAuthMode('login');
+      setPassword('');
+      setConfirmPassword('');
+      return;
+    }
+
     const auth = await resolveAuth(username, password, roleTab);
 
     if (!auth) {
@@ -149,11 +186,20 @@ export default function Login() {
           <div className="divider" />
 
           <div className="heading">
-            <h1>Sisteme Giriş</h1>
-            <span className="id">SESSION#A7C2</span>
+            <h1>{authMode === 'login' ? 'Sisteme Giriş' : 'Üye Ol'}</h1>
+            <span className="id">{authMode === 'login' ? 'SESSION#A7C2' : 'REGISTER#B4E1'}</span>
           </div>
 
-          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          {error ? (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {successMsg ? (
+            <p className="form-success" role="status">
+              {successMsg}
+            </p>
+          ) : null}
 
           <div className="field">
             <label htmlFor="user">Kullanıcı Adı</label>
@@ -192,7 +238,7 @@ export default function Login() {
                 className="input"
                 type={showPw ? 'text' : 'password'}
                 placeholder="••••••••••"
-                autoComplete="current-password"
+                autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={onPwKeyDown}
@@ -237,6 +283,37 @@ export default function Login() {
             </div>
           </div>
 
+          {authMode === 'signup' ? (
+            <div className="field">
+              <label htmlFor="pw2">Şifre Tekrar</label>
+              <div className="input-wrap">
+                <input
+                  id="pw2"
+                  className="input"
+                  type={showPw ? 'text' : 'password'}
+                  placeholder="••••••••••"
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={submitState !== 'idle'}
+                />
+                <span className="leading" aria-hidden>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="4" y="10" width="16" height="11" rx="2" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                  </svg>
+                </span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="field">
             <label>Rol Seçimi</label>
             <div className="role-row" role="radiogroup" aria-label="Rol">
@@ -263,31 +340,61 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="demo-block">
-            <span className="demo-label">Demo Hesaplar</span>
-            <div className="demo-row">
-              {DEMO_ACCOUNTS.map((demo) => (
-                <button
-                  key={demo.id}
-                  type="button"
-                  className="demo-btn"
-                  onClick={() => loginWithDemo(demo)}
-                  disabled={submitState !== 'idle'}
-                  title={`${demo.username} / ${demo.password}`}
-                >
-                  <span className="demo-btn-title">{demo.label}</span>
-                  <span className="demo-btn-creds">
-                    {demo.username}
-                    <span className="demo-btn-sep">·</span>
-                    {demo.password}
-                  </span>
-                  <span className="demo-btn-hint">{demo.hint}</span>
-                </button>
-              ))}
+          {authMode === 'login' ? (
+            <div className="demo-block">
+              <span className="demo-label">Demo Hesaplar</span>
+              <div className="demo-row">
+                {DEMO_ACCOUNTS.map((demo) => (
+                  <button
+                    key={demo.id}
+                    type="button"
+                    className="demo-btn"
+                    onClick={() => loginWithDemo(demo)}
+                    disabled={submitState !== 'idle'}
+                    title={`${demo.username} / ${demo.password}`}
+                  >
+                    <span className="demo-btn-title">{demo.label}</span>
+                    <span className="demo-btn-creds">
+                      {demo.username}
+                      <span className="demo-btn-sep">·</span>
+                      {demo.password}
+                    </span>
+                    <span className="demo-btn-hint">{demo.hint}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
 
-          <SubmitButton state={submitState} />
+          <SubmitButton state={submitState} mode={authMode} />
+
+          <div className="auth-switch">
+            {authMode === 'login' ? (
+              <>
+                <span className="auth-switch-text">Hesabın yok mu?</span>
+                <button
+                  type="button"
+                  className="auth-switch-link"
+                  onClick={() => switchAuthMode('signup')}
+                  disabled={submitState !== 'idle'}
+                >
+                  Üye Ol
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="auth-switch-text">Zaten üye misin?</span>
+                <button
+                  type="button"
+                  className="auth-switch-link"
+                  onClick={() => switchAuthMode('login')}
+                  disabled={submitState !== 'idle'}
+                >
+                  Giriş Yap
+                </button>
+              </>
+            )}
+          </div>
 
           <div className="foot">MODÜ-GRID v1.0 — Akıllı Mikro-Şebeke Yönetim Sistemi</div>
 
@@ -326,13 +433,15 @@ export default function Login() {
   );
 }
 
-function SubmitButton({ state }) {
+function SubmitButton({ state, mode }) {
+  const isSignup = mode === 'signup';
+
   if (state === 'loading') {
     return (
       <button type="button" className="submit" disabled>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
           <span className="submit-spinner" />
-          Doğrulanıyor…
+          {isSignup ? 'Kaydediliyor…' : 'Doğrulanıyor…'}
         </span>
       </button>
     );
@@ -342,7 +451,7 @@ function SubmitButton({ state }) {
     return (
       <button type="button" className="submit" disabled>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: '#bbf7d0' }}>
-          ✓ Yetkilendirildi
+          ✓ {isSignup ? 'Kayıt Tamamlandı' : 'Yetkilendirildi'}
         </span>
       </button>
     );
@@ -350,7 +459,7 @@ function SubmitButton({ state }) {
 
   return (
     <button type="submit" className="submit" id="submitBtn">
-      Giriş Yap
+      {isSignup ? 'Üye Ol' : 'Giriş Yap'}
       <span className="arrow">
         <svg
           width="16"

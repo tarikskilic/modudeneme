@@ -6,7 +6,11 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { DEFAULT_SIMULATION } from '../constants/simulationDefaults.js';
+import {
+  DEFAULT_SIMULATION,
+  getInvestmentCosts,
+  SLIDER_RANGES,
+} from '../constants/simulationDefaults.js';
 import { getHourlyData } from '../utils/energyCalculations.js';
 
 const STORAGE_KEY = 'modugrid:sim';
@@ -18,7 +22,19 @@ function loadInitial() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SIMULATION;
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SIMULATION, ...parsed, hardwareConnected: false };
+    const merged = { ...DEFAULT_SIMULATION, ...parsed, hardwareConnected: false };
+    const { min, max, step } = SLIDER_RANGES.batteryCapacity;
+    if (typeof merged.batteryCapacity === 'number') {
+      // Eski simülasyon hedefi (500 kWh) → proje BESS hedefi (45 kWh)
+      if (merged.batteryCapacity >= 250) {
+        merged.batteryCapacity = DEFAULT_SIMULATION.batteryCapacity;
+      } else {
+        const snapped =
+          Math.round((merged.batteryCapacity - min) / step) * step + min;
+        merged.batteryCapacity = Math.min(max, Math.max(min, snapped));
+      }
+    }
+    return merged;
   } catch {
     return DEFAULT_SIMULATION;
   }
@@ -32,7 +48,15 @@ export function SimulationProvider({ children }) {
   const [apartmentCount, setApartmentCount] = useState(initial.apartmentCount);
   const [selectedMonth, setSelectedMonth] = useState(initial.selectedMonth);
   const [selectedApartment, setSelectedApartment] = useState(initial.selectedApartment);
+  const [costScenario, setCostScenario] = useState(
+    initial.costScenario ?? DEFAULT_SIMULATION.costScenario
+  );
   const hardwareConnected = DEFAULT_SIMULATION.hardwareConnected;
+
+  const investmentCosts = useMemo(
+    () => getInvestmentCosts(costScenario),
+    [costScenario]
+  );
 
   useEffect(() => {
     try {
@@ -45,6 +69,7 @@ export function SimulationProvider({ children }) {
           apartmentCount,
           selectedMonth,
           selectedApartment,
+          costScenario,
         })
       );
     } catch {
@@ -57,6 +82,7 @@ export function SimulationProvider({ children }) {
     apartmentCount,
     selectedMonth,
     selectedApartment,
+    costScenario,
   ]);
 
   useEffect(() => {
@@ -70,6 +96,7 @@ export function SimulationProvider({ children }) {
         if (typeof next.apartmentCount === 'number') setApartmentCount(next.apartmentCount);
         if (typeof next.selectedMonth === 'number') setSelectedMonth(next.selectedMonth);
         if (typeof next.selectedApartment === 'string') setSelectedApartment(next.selectedApartment);
+        if (typeof next.costScenario === 'string') setCostScenario(next.costScenario);
       } catch {
         // ignore
       }
@@ -85,6 +112,7 @@ export function SimulationProvider({ children }) {
     setApartmentCount(DEFAULT_SIMULATION.apartmentCount);
     setSelectedMonth(DEFAULT_SIMULATION.selectedMonth);
     setSelectedApartment(DEFAULT_SIMULATION.selectedApartment);
+    setCostScenario(DEFAULT_SIMULATION.costScenario);
   }, []);
 
   const hourlyData = useMemo(
@@ -106,6 +134,9 @@ export function SimulationProvider({ children }) {
       setSelectedMonth,
       selectedApartment,
       setSelectedApartment,
+      costScenario,
+      setCostScenario,
+      investmentCosts,
       hardwareConnected,
       hourlyData,
       reset,
@@ -117,6 +148,8 @@ export function SimulationProvider({ children }) {
       apartmentCount,
       selectedMonth,
       selectedApartment,
+      costScenario,
+      investmentCosts,
       hardwareConnected,
       hourlyData,
       reset,

@@ -670,9 +670,54 @@
   color: #fca5a5;
 }
 
+.login-page .form-success {
+  margin-bottom: 12px;
+  text-align: center;
+  font-size: 12px;
+  color: #86efac;
+}
+
+.login-page .auth-switch {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.login-page .auth-switch-text {
+  color: var(--subtext);
+}
+
+.login-page .auth-switch-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color 0.2s ease;
+}
+
+.login-page .auth-switch-link:hover:not(:disabled) {
+  color: #60a5fa;
+}
+
+.login-page .auth-switch-link:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 .login-page .pill:focus-visible,
 .login-page .submit:focus-visible,
-.login-page .toggle-pw:focus-visible {
+.login-page .toggle-pw:focus-visible,
+.login-page .auth-switch-link:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }

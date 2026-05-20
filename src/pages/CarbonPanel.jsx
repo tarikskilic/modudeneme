@@ -5,7 +5,7 @@ import {
   getFinancialMetrics,
   getPeriodAnalysis,
 } from '../utils/energyCalculations.js';
-import { CO2_FACTORS, LEGACY_BASELINE, scaleLegacyBaseline } from '../constants/simulationDefaults.js';
+import { BATTERY_TARGET_KWH, CO2_FACTORS, LEGACY_BASELINE, scaleLegacyBaseline } from '../constants/simulationDefaults.js';
 import { motion } from 'framer-motion';
 import {
   Car,
@@ -149,13 +149,13 @@ export default function CarbonPanel() {
     const panelBonus = panelCapacity >= 150 && panelCapacity <= 350 ? 100 : 50;
     const score = Math.min(
       1000,
-      chartScr * 5 + (batteryCapacity / 500) * 200 + panelBonus + 100 + 60
+      chartScr * 5 + (batteryCapacity / BATTERY_TARGET_KWH) * 200 + panelBonus + 100 + 60
     );
     const subScores = [
       { label: 'Öz-Tüketim Oranı', value: Math.round(chartScr * 0.85), status: 'success' },
       {
         label: 'Batarya Kullanımı',
-        value: Math.round((batteryCapacity / 500) * 100 * 0.78),
+        value: Math.round(Math.min(100, (batteryCapacity / BATTERY_TARGET_KWH) * 100 * 0.78)),
         status: 'success',
       },
       {

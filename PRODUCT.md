@@ -2,6 +2,10 @@
 
 > Akıllı mikro-şebeke yönetim sistemi. SaaS kalitesinde web uygulaması. Jüri ve yatırımcı sunumu için hazırlanır.
 
+**İlgili dokümanlar**: [README.md](./README.md) (kurulum + özet), [DESIGN.md](./DESIGN.md) (UI/tasarım sistemi), [SPEC_AUDIT.md](./SPEC_AUDIT.md) (kod uyumu).
+
+**Son güncelleme (2026-05-20)**: BESS **45 kWh**; slider **0–150 kWh**; **Üye Ol**; **CAPEX** senaryoları; **manuel giriş**; **`modugrid:sim` persist** + mobil drawer + navbar reset; PDF **disabled**. Detay uyum: [SPEC_AUDIT.md](./SPEC_AUDIT.md).
+
 ---
 
 ## 1. Vizyon
@@ -35,16 +39,17 @@ MODÜ-GRID, çok bloklu konut sitelerinde **güneş paneli + batarya + şebeke**
 ### Paket kurulumu
 
 ```bash
-npm install react-router-dom recharts lucide-react framer-motion
-npm install jspdf html2canvas
+npm install react-router-dom recharts lucide-react framer-motion @supabase/supabase-js
 npm install -D tailwindcss postcss autoprefixer
 ```
 
-> `jspdf` + `html2canvas` — Comparison ve Dönem Analizi sayfalarındaki "Raporu İndir" butonları için. Sayfa snapshot'ı alıp PDF olarak indirir.
+> `jspdf` + `html2canvas` — `package.json`'da mevcut; **Dönem Analizi → "Raporu İndir"** henüz bağlanmadı (buton `disabled`). Hedef: A4 yatay PDF, `MODU-GRID-Donem-Raporu-{tarih}.pdf`.
 
 ---
 
 ## 4. Tasarım Sistemi
+
+> **Güncel UI referansı**: [DESIGN.md](./DESIGN.md) (token listesi, login, slider, responsive). Aşağıdaki özet spec ile uyumludur; çelişki durumunda DESIGN + `tailwind.config.js` esas alınır.
 
 ### 4.1. Renk Paleti (Tailwind config)
 
@@ -57,7 +62,11 @@ colors: {
   warning: '#F59E0B',      // amber — uyarı, batarya, dikkat
   foreground: '#F9FAFB',   // ana metin (kırık beyaz)
   muted: '#6B7280',        // ikincil metin (gri)
+  'muted-light': '#9CA3AF',
   border: '#1F2937',       // çerçeve / ayraç
+  'border-strong': '#374151',
+  'surface-alt': '#0D1321',
+  danger: '#EF4444',
 }
 ```
 
@@ -113,23 +122,17 @@ src/
 │   ├── CarbonPanel.jsx
 │   └── Comparison.jsx
 ├── components/
-│   ├── Navbar.jsx
-│   ├── Sidebar.jsx
-│   ├── KPICard.jsx
-│   ├── SliderPanel.jsx
-│   ├── HardwareStatusBanner.jsx
-│   └── Charts/
-│       ├── DailyEnergyChart.jsx
-│       ├── ROIChart.jsx
-│       ├── GaugeChart.jsx
-│       ├── BatterySOCChart.jsx
-│       └── CarbonChart.jsx
-├── context/
-│   └── SimulationContext.jsx
-├── utils/
-│   └── energyCalculations.js
-├── constants/
-│   └── simulationDefaults.js
+│   ├── Navbar.jsx, Sidebar.jsx, KPICard.jsx
+│   ├── SliderPanel.jsx, SliderValueInput.jsx
+│   ├── CostScenarioSelector.jsx, PeriodAnalysisTab.jsx
+│   ├── EnergyFlowDiagram.jsx, HardwareStatusBanner.jsx
+│   ├── ElectricGridBackground.jsx, CarbonChart.jsx, …
+│   └── Charts/ (DailyEnergy, ROI, Gauge, BatterySOC, …)
+├── context/SimulationContext.jsx
+├── lib/auth.js, supabase.js
+├── utils/energyCalculations.js, roiProjection.js
+├── constants/simulationDefaults.js
+├── styles/login.css
 ├── App.jsx
 └── main.jsx
 ```
@@ -152,34 +155,49 @@ src/
 
 ---
 
-## 7. Kimlik Doğrulama (Simülasyon)
+## 7. Kimlik Doğrulama
 
-Gerçek backend yok. `localStorage` üzerinden taklit.
+`src/lib/auth.js` — iki mod:
 
-### Kullanıcılar
+| Mod | Koşul | Davranış |
+|-----|--------|----------|
+| **Supabase** | `VITE_SUPABASE_*` tanımlı | `signInWithPassword`, `signUp`, `profiles` tablosu |
+| **Yerel demo** | Env yok | Demo kullanıcılar + `modigrid_registered_users` kayıtları |
+
+### Giriş ekranı (`Login.jsx`)
+
+- Modlar: **Sisteme Giriş** | **Üye Ol** (toggle)
+- Rol pill: `admin` | `resident`
+- Demo hesaplar (yalnızca giriş modunda)
+
+### Demo kullanıcılar (her zaman)
 
 | Kullanıcı Adı | Şifre | Rol |
 |---------------|-------|-----|
 | `admin` | `modigrid2024` | `admin` |
 | `daire1` … `daire10` | `1234` | `resident` |
 
-### Login sonrası kayıt
+### Üye Ol
+
+- Validasyon: kullanıcı adı ≥ 3, şifre ≥ 6, şifre tekrar eşleşmeli
+- Supabase: `signUp({ email: username@modigrid.app, options.data: { username, role } })` → trigger `handle_new_user` → `profiles`
+- Yerel: `modigrid_registered_users` (demo adları rezerve: `admin`, `daire1`…`daire10`)
+
+### Oturum (`localStorage.auth`)
 
 ```js
-localStorage.setItem('auth', JSON.stringify({
-  role: 'admin' | 'resident',
-  username: 'admin' | 'daire1' | ...,
-  loginAt: Date.now()
-}));
+{ role: 'admin' | 'resident', username: string, loginAt: number }
 ```
+
+Parola **asla** saklanmaz.
 
 ### Logout
 
-`localStorage.removeItem('auth')` + `/` 'e yönlendir.
+`signOut()` + `localStorage.removeItem('auth')` → `/`
 
-### Güvenlik notu (jüri sorarsa)
+### Güvenlik notu (jüri)
 
-Bu **demo katmanı**. Üretimde JWT + httpOnly cookie + sunucu doğrulama gerekir. localStorage'a parola asla yazılmaz — sadece rol/oturum bilgisi tutulur.
+Demo/yerel katman üretim için yeterli değildir. Üretimde sunucu tarafı oturum + httpOnly cookie önerilir.
 
 ---
 
@@ -188,18 +206,26 @@ Bu **demo katmanı**. Üretimde JWT + httpOnly cookie + sunucu doğrulama gereki
 Tüm sayfalar bu context'i tüketir. Slider değişikliği anında bütün sayfaları günceller.
 
 ```js
-const defaultValues = {
-  panelCapacity: 250,         // kWp, min: 50, max: 400, step: 10
-  batteryCapacity: 500,       // kWh, min: 0, max: 500, step: 50
-  blockCount: 5,              // adet, min: 1, max: 10
-  apartmentCount: 100,        // adet, min: 20, max: 200, step: 10
-  selectedMonth: 7,           // 1-12
+// DEFAULT_SIMULATION + SLIDER_RANGES → simulationDefaults.js
+{
+  panelCapacity: 250,       // kWp — SLIDER: 50–400, step 10 (sürükleme)
+  batteryCapacity: 45,      // kWh — BATTERY_TARGET_KWH (LiFePO4 BESS hedefi)
+  blockCount: 5,
+  apartmentCount: 100,      // SLIDER: 20–200, step 1
+  selectedMonth: 7,
   selectedApartment: 'daire1',
-  hardwareConnected: false    // sabit
+  costScenario: 'base',     // demo | base | subsidized | conservative
+  hardwareConnected: false
 }
+
+// Batarya slider UI: 0–150 kWh, step 5 (sürükleme); manuel giriş tam sayı
 ```
 
-Context API: `value = { ...state, setPanelCapacity, setBatteryCapacity, ..., reset }`
+**CAPEX**: `costScenario` → `getInvestmentCosts()` → ROI ve yatırım çizgisi.
+
+**Manuel giriş**: `SliderValueInput` — min/max clamp; slider ile aynı context.
+
+Context API: `value = { ...state, setters, reset, investmentCosts }`
 
 ---
 
@@ -320,20 +346,21 @@ else:
 #### ROI
 
 ```
-yatırımMaliyeti = batteryCapacity * 3000 + panelCapacity * 8000    // TL
-roiYears = yatırımMaliyeti / yearlyProfit
+investmentCosts = getInvestmentCosts(costScenario)   // SCENARIO_PRESETS
+yatırım = computeInvestment(panelCapacity, batteryCapacity, investmentCosts)
+roiYears = computeRoiYears(yatırım, yıllıkTasarruf)   // geçersizse null → UI "—"
 ```
 
-> **Kaynak notu** (jüri sorabilir): 2024 TR pazarında PV kurulumu ~6.000-10.000 TL/kWp aralığında. Li-ion batarya ~2.500-4.000 TL/kWh aralığında. Orta noktalar seçildi.
+Senaryolar: `demo` | `base` (Pilot) | `subsidized` (Teşvikli) | `conservative`. Jüri referansı: `CANONICAL_SCENARIO` (`simulationDefaults.js`).
 
 ### 9.6. `getCarbonMetrics(dailyProduction, selfConsumptionRate)`
 
 ```
 yeşilEnerji      = dailyProduction * (selfConsumptionRate / 100)
-co2Saved_daily   = yeşilEnerji * 0.5                  // 0.5 kg CO2 / kWh (TR şebekesi karışımı)
-monthlyCO2Saved  = co2Saved_daily * 30                // kg/ay
-equivalentTrees  = monthlyCO2Saved / 1.75             // 1 ağaç ~1.75 kg CO2/ay emer
-equivalentCars   = (monthlyCO2Saved * 12) / 2400      // 1 araba ~2400 kg CO2/yıl
+co2Saved_daily   = yeşilEnerji * CO2_FACTORS.perKwhKg  // 0.45 kg CO₂/kWh
+monthlyCO2Saved  = co2Saved_daily * 30
+equivalentTrees  = monthlyCO2Saved / CO2_FACTORS.treeKgPerMonth
+equivalentCars   = (monthlyCO2Saved * 12) / CO2_FACTORS.carKgPerYear
 ```
 
 Dönüş:
@@ -510,7 +537,7 @@ daire1..daire10 / 1234            → /resident
 - **Aktif**: sol border `3px solid primary`, arka plan `rgba(59,130,246,0.1)`, ikon+yazı `text-primary`
 - **Hover**: `rgba(59,130,246,0.05)` arka plan
 - `useLocation` ile aktif yol tespiti
-- **Mobil (`<lg`)**: sidebar gizlenir, navbar'a `<Menu />` hamburger butonu eklenir. Tıklayınca drawer (sol slayd-in) açılır, backdrop overlay ile. Drawer tasarımı sidebar ile aynı.
+- **Mobil (`<lg`)**: sidebar gizlenir; navbar `<Menu />` → sol drawer (backdrop + Esc). Drawer menü `ADMIN_NAV_ITEMS` ile aynı.
 
 ### 12.4. `HardwareStatusBanner.jsx`
 
@@ -557,16 +584,14 @@ Kartlar:
 
 Slider stili: thumb `bg-primary` 20px daire, track `bg-border`, dolu kısım mavi gradient. Touch hedefi ≥ 44px (mobil için `h-11`).
 
-1. **Panel Gücü** — `<Sun />`, 50-400, step 10, kWp
-   - Optimal 150-350 → yeşil, dışı amber
-   - `<150`: "Yetersiz kapasite" (warning)
-   - 150-350: "Optimal aralık" (success)
-   - `>350`: "Aşırı kapasite — şebeke satışı artar" (warning)
-2. **Batarya Kapasitesi** — `<Battery />`, 0-500, step 50, kWh
-   - 3 badge: "Bataryasız (0)", "Minimum Optimum (250)", "MODÜ-GRID Hedefi ✅ (500)"
-   - Mevcut değere yakın olan highlight + yeşil glow
-3. **Blok Sayısı** — `<Building2 />`, 1-10, +/- butonlar
-4. **Daire Sayısı** — `<Home />`, 20-200, step 10, +/- butonlar
+1. **Panel Gücü** — `<Sun />`, 50–400 kWp; slider step 10; **manuel giriş** tam sayı
+   - Optimal 150–350 → yeşil track, dışı amber
+2. **Batarya Kapasitesi** — `<Battery />`, 0–150 kWh, slider step 5; **manuel giriş**
+   - Preset badge: `0` Bataryasız, `45` MODÜ-GRID Hedefi (LiFePO4), `90` Genişletilmiş
+3. **Blok Sayısı** — 1–10; slider + +/- + manuel giriş (yalnızca görselleştirme)
+4. **Daire Sayısı** — 20–200, step 1; slider + +/- + manuel giriş (ör. 63)
+5. **CAPEX senaryosu** — `CostScenarioSelector` (Dashboard slider panelinde veya Finansal Simülatör üstünde)
+6. **Ay seçimi** — dropdown
 
 Tüm değişiklikler `SimulationContext`'i günceller.
 
@@ -682,7 +707,8 @@ Sayfa altında timeline:
 
 #### Sayfa başlığı
 - Sol: "Finansal Simülatör" / "Parametreleri değiştirerek yatırım getirisini anlık hesaplayın"
-- Sağ: "Optimal Konfigürasyonu Göster" butonu (`<Sparkles />`, success). Tıklayınca: `panelCapacity → 250`, `batteryCapacity → 500`, Framer Motion ile slider'lar kayar, metrikler animate güncellenir.
+- Sağ: "Optimal Konfigürasyonu Göster" (`<Sparkles />`). Animasyon: `panelCapacity → 250`, `batteryCapacity → 45` (BESS hedefi), `apartmentCount → 100` (gerekirse).
+- Üst: **CAPEX senaryo** seçici (`CostScenarioSelector`).
 
 #### Sol kolon — Konfigürasyon Paneli
 
@@ -696,17 +722,13 @@ Sayfa altında timeline:
   - `>350`: `<AlertCircle />` + "Aşırı kapasite — fazla enerji şebekeye gidecek"
 
 **Batarya Kapasitesi slider**:
-- Üst: `<Battery />` + "Batarya Kapasitesi", büyük değer badge sağ "500 kWh"
-- Slider 0-500, step 50
-- Alt: 3 senaryo badge `[0 Bataryasız][250 Minimum][500 Hedef ✅]` — yakın olana highlight + yeşil glow
-- Senaryo açıklaması:
-  - 0: "Sadece akıllı yönetim — anında kâr, düşük verim"
-  - 1-249: "Kısmi depolama — orta verimlilik"
-  - 250-449: "Minimum optimum — iyi verimlilik"
-  - 500: "Tam kapasite — MODÜ-GRID hedefi, maksimum kâr"
+- Üst: `<Battery />` + manuel giriş (`SliderValueInput`)
+- Slider 0–150 kWh, HTML step 1, sürüklerken step 5 snap
+- Alt: `[0 Bataryasız][45 MODÜ-GRID Hedefi][90 Genişletilmiş]`
 
-**Blok Sayısı**: `<Building2 />`, 1-10, +/- butonlar arasında büyük sayı
-**Daire Sayısı**: `<Home />`, 20-200, step 10, +/- butonlar
+**Blok / Daire**: +/- ve `SliderValueInput` (Finansal Simülatör stepper ile aynı mantık)
+
+**Panel**: `ConfigSlider` + sağ üst manuel kWp girişi
 **Ay Seçimi**: `<Calendar />` + 12 ay pill yatay (Oca Şub…). Seçili: mavi.
 
 #### Sağ kolon — Finansal Çıktılar
@@ -821,7 +843,7 @@ Satır renkleri:
 
 Alt: kalın **TOPLAM** satırı.
 
-Sağ alt: `<Download />` + "Raporu İndir" butonu. Tıklayınca `html2canvas` ile sayfa snapshot'ı alınır, `jsPDF` ile A4 yatay PDF üretilir, `MODU-GRID-Donem-Raporu-{tarih}.pdf` adıyla indirilir.
+Sağ alt: `<Download />` + "Raporu İndir" — **şu an `disabled`**. Hedef davranış: `html2canvas` + `jsPDF` → A4 yatay `MODU-GRID-Donem-Raporu-{tarih}.pdf`.
 
 **Boş state**: analiz başlatılmadan grafikler/kartlar görünmez. Yerine `<BarChart2 />` + "Dönem seçin ve analizi başlatın" placeholder.
 
@@ -965,12 +987,12 @@ Legend: kare + yazı + yüzde.
 
 Card "MODÜ-GRID Sürdürülebilirlik Skoru".
 
-**Skor formülü**:
+**Skor formülü** (`CarbonPanel.jsx`, `BATTERY_TARGET_KWH = 45`):
 ```
 score = min(1000,
-  selfConsumptionRate * 5                              // max 500
-  + (batteryCapacity / 500) * 200                      // max 200
-  + (panelCapacity in 150..350 ? 100 : 50)             // 50 veya 100
+  selfConsumptionRate * 5
+  + (batteryCapacity / 45) * 200                         // BESS hedefi referansı
+  + (panelCapacity in 150..350 ? 100 : 50)
   + 100                                                // mevzuat (sabit)
   + 60                                                 // V2G (sabit)
 )
@@ -984,7 +1006,7 @@ score = min(1000,
 
 **Sağ — skor bileşenleri** (5 satır):
 - `<CheckCircle />` (yeşil) "Öz-Tüketim Oranı" `(selfConsumptionRate*0.85).toFixed(0)` / 100
-- `<CheckCircle />` (yeşil) "Batarya Kullanımı" `(batteryCapacity/500*100*0.78).toFixed(0)` / 100
+- `<CheckCircle />` (yeşil) "Batarya Kullanımı" `min(100, (batteryCapacity/45*100*0.78))` / 100
 - `<CheckCircle />` (yeşil) "Şebeke Bağımsızlığı" `(selfConsumptionRate*0.72).toFixed(0)` / 100
 - `<CheckCircle />` (yeşil glow) "Mevzuat Uyumu" 100/100
 - `<Circle />` (mavi) "V2G Hazırlığı" 60/100
@@ -1103,7 +1125,10 @@ Card, premium yatırım notu hissi, 7 madde stagger:
 |------|-------|
 | İş akışı | Tüm sayfaları sırayla yaz (tasarım gelmeden). Tasarım gelince refine. |
 | Daire sakini datası | Daire numarasına bağlı seed (`Math.sin`). Sabit pseudo-random varyasyon. |
-| State persist | localStorage'a persist (`modugrid:sim`). Navbar'da admin için "Sıfırla" butonu. |
+| State persist | ✅ `modugrid:sim` — `SimulationContext` persist + çoklu sekme `storage` sync. |
+| Navbar reset | ✅ Admin `<RotateCcw />` → `context.reset()`. |
+| Mobil admin nav | ✅ `<lg` hamburger + drawer (`Navbar.jsx`). |
+| Comparison scale | ✅ `scaleLegacyBaseline(apartmentCount)`. |
 | Geleneksel sistem rakamları | Sabit (hardcoded `LEGACY_BASELINE`), apartmentCount'a orantılı scale. |
 | Currency format | `Intl.NumberFormat('tr-TR')` → `1.234,56 ₺` |
 | Logo | Sprint 1'de placeholder: `<Zap />` + "MODÜ-GRID". Gerçek logo geldiğinde swap. |
@@ -1118,7 +1143,12 @@ Card, premium yatırım notu hissi, 7 madde stagger:
 | Hardware banner | Banner + tıklanınca tek mesajlı modal ("Donanım bulunamadı..."), CTA yok. |
 | Tasarım kaynağı | HTML mock (Figma değil). Mock geldikçe sayfa sayfa port edilir. |
 | EnergyFlow Play hızı | Sabit 1sn/saat. Hız kontrolü yok. |
-| Raporu İndir | jsPDF + html2canvas ile A4 yatay PDF export. |
+| Raporu İndir | Planlı: jsPDF + html2canvas A4 yatay. **Mevcut: buton disabled.** |
+| Üye Ol | Login toggle + Supabase signUp veya yerel kayıt. |
+| Manuel slider girişi | `SliderValueInput` tüm parametrelerde. |
+| BESS hedefi | 45 kWh (`BATTERY_TARGET_KWH`), slider max 150 kWh. |
+| CAPEX senaryoları | `costScenario` + `SCENARIO_PRESETS` (4 preset). |
+| Tasarım referansı | [DESIGN.md](./DESIGN.md) + `tailwind.config.js`. |
 | Modal kapatma | Backdrop tıklama + Esc + X butonu (3 yol da çalışır). |
 
 ---

@@ -1,10 +1,15 @@
 import {
+  APARTMENT_KWH_PER_DAY,
+  BATTERY_DISPATCH,
   BATTERY_PARAMS,
+  COMMON_AREA_KWH_PER_APT,
   CO2_FACTORS,
+  CONSUMPTION_PROFILE,
   ELECTRICITY_PRICES,
   INVESTMENT_COSTS,
   SUNSHINE_HOURS,
-  CONSUMPTION_PROFILE,
+  computeInvestment,
+  computeRoiYears,
 } from '../constants/simulationDefaults.js';
 
 export { SUNSHINE_HOURS };
@@ -40,13 +45,25 @@ export function getDailyProduction(panelCapacity, month) {
   return panelCapacity * k;
 }
 
+function isPeakHour(hour) {
+  const { peak } = CONSUMPTION_PROFILE;
+  return hour >= peak.from && hour <= peak.to;
+}
+
+/**
+ * @param {number} apartmentCount
+ */
+export function getDailyConsumptionSplit(apartmentCount) {
+  const apartment = apartmentCount * APARTMENT_KWH_PER_DAY;
+  const commonArea = apartmentCount * COMMON_AREA_KWH_PER_APT;
+  return { apartment, commonArea, total: apartment + commonArea };
+}
+
 /**
  * @param {number} apartmentCount
  */
 export function getDailyConsumption(apartmentCount) {
-  const daire = apartmentCount * 10;
-  const ortakAlan = apartmentCount * 2.5;
-  return daire + ortakAlan;
+  return getDailyConsumptionSplit(apartmentCount).total;
 }
 
 /**
@@ -57,22 +74,28 @@ export function getDailyConsumption(apartmentCount) {
  */
 export function getHourlyData(panelCapacity, apartmentCount, batteryCapacity, month) {
   const dailyProd = getDailyProduction(panelCapacity, month);
-  const dailyCons = getDailyConsumption(apartmentCount);
+  const { apartment: apartmentDaily, commonArea: commonDaily } =
+    getDailyConsumptionSplit(apartmentCount);
 
   const rawProd = Array.from({ length: 24 }, (_, h) => rawProductionShape(h));
   const prodSum = rawProd.reduce((a, b) => a + b, 0) || 1;
   const production = rawProd.map((r) => (dailyProd * r) / prodSum);
 
   const weights = normalizedHourlyWeights();
-  const consumption = weights.map((w) => dailyCons * w);
+  const apartmentCons = weights.map((w) => apartmentDaily * w);
+  const commonCons = weights.map((w) => commonDaily * w);
+  const consumption = apartmentCons.map((a, i) => a + commonCons[i]);
 
   const cap = Math.max(0, batteryCapacity);
   const eMin = cap * BATTERY_PARAMS.minSocFraction;
+  const eff = BATTERY_PARAMS.roundTripEfficiency;
   let stored = cap * BATTERY_PARAMS.initialSocFraction;
   const result = [];
 
   for (let h = 0; h < 24; h++) {
     const p = production[h];
+    const aptC = apartmentCons[h];
+    const commonC = commonCons[h];
     const c = consumption[h];
     const eStart = stored;
 
@@ -82,24 +105,48 @@ export function getHourlyData(panelCapacity, apartmentCount, batteryCapacity, mo
     let gridExport = 0;
     let batteryChargeKwh = 0;
 
-    if (p >= c) {
-      directUse = c;
-      const surplus = p - c;
+    // 1) Güneş → önce daire, sonra ortak alan (direkt)
+    const aptDirect = Math.min(p, aptC);
+    let pRem = p - aptDirect;
+    const commonDirect = Math.min(pRem, commonC);
+    pRem -= commonDirect;
+    directUse = aptDirect + commonDirect;
+
+    const aptDef = aptC - aptDirect;
+    const commonDef = commonC - commonDirect;
+
+    // 2) Fazla üretim → batarya (öncelik), kalan şebekeye satış
+    if (pRem > 0 && cap > 0) {
       const space = Math.max(0, cap - eStart);
-      batteryChargeKwh = cap > 0 ? Math.min(surplus, space) : 0;
+      batteryChargeKwh = Math.min(pRem, space);
       stored = eStart + batteryChargeKwh;
-      gridExport = surplus - batteryChargeKwh;
-      batteryUse = 0;
-      gridImport = 0;
+      gridExport = pRem - batteryChargeKwh;
+    } else if (pRem > 0) {
+      stored = eStart;
+      gridExport = pRem;
     } else {
-      directUse = p;
-      const deficit = c - p;
+      stored = eStart;
       gridExport = 0;
-      const maxDischarge = Math.max(0, eStart - eMin);
-      batteryUse = cap > 0 ? Math.min(deficit, maxDischarge) : 0;
-      stored = eStart - batteryUse;
-      gridImport = deficit - batteryUse;
-      batteryChargeKwh = 0;
+    }
+
+    // 3) Daire açığı → şebeke
+    gridImport = aptDef;
+
+    // 4) Ortak alan açığı → pik saatte batarya peak shaving, diğer saatler şebeke
+    if (commonDef > 0) {
+      if (
+        cap > 0 &&
+        BATTERY_DISPATCH.peakShavingOnly &&
+        isPeakHour(h)
+      ) {
+        const maxDischarge = Math.max(0, stored - eMin);
+        const maxDeliverable = maxDischarge * eff;
+        batteryUse = Math.min(commonDef, maxDeliverable);
+        stored -= batteryUse / eff;
+        gridImport += commonDef - batteryUse;
+      } else {
+        gridImport += commonDef;
+      }
     }
 
     stored = Math.min(Math.max(stored, cap > 0 ? eMin : 0), cap);
@@ -109,6 +156,8 @@ export function getHourlyData(panelCapacity, apartmentCount, batteryCapacity, mo
       hour: h,
       production: p,
       consumption: c,
+      apartmentConsumption: aptC,
+      commonConsumption: commonC,
       batterySoC,
       gridImport,
       gridExport,
@@ -149,29 +198,25 @@ export function getFinancialMetrics(
     gridExportRevenue += row.gridExport * ELECTRICITY_PRICES.gridExport;
     gridImportCost += row.gridImport * ELECTRICITY_PRICES.gridImport;
     directSavings += row.directUse * ELECTRICITY_PRICES.directAvoided;
-    batterySavings +=
-      row.batteryUse * (ELECTRICITY_PRICES.directAvoided * BATTERY_PARAMS.roundTripEfficiency);
+    batterySavings += row.batteryUse * ELECTRICITY_PRICES.directAvoided;
   }
 
-  const dailyProfit = gridExportRevenue - gridImportCost + directSavings + batterySavings;
+  /**
+   * Net tasarruf = öz-tüketim değeri + şebeke satış geliri.
+   * gridImportCost ayrıca düşülmez — direct/battery savings zaten şebeke alışından
+   * kaçınılan kWh'ı temsil eder; çift sayım ROI'yi yapay negatife çeker.
+   */
+  const dailyProfit = directSavings + batterySavings + gridExportRevenue;
   const monthlyProfit = dailyProfit * 30;
-  const yearlyProfit = dailyProfit * 365;
   const selfConsumptionRate =
     totalConsumption > 0
       ? ((totalDirect + totalBatteryUse) / totalConsumption) * 100
       : 0;
 
-  const investment =
-    batteryCapacity * INVESTMENT_COSTS.batteryPerKwh +
-    panelCapacity * INVESTMENT_COSTS.panelPerKwp;
-  const roiYears = yearlyProfit > 0 ? investment / yearlyProfit : Infinity;
-
   return {
     dailyProfit,
     monthlyProfit,
-    yearlyProfit,
     selfConsumptionRate,
-    roiYears,
     perApartmentMonthly: apartmentCount > 0 ? monthlyProfit / apartmentCount : 0,
     gridExportRevenue,
     gridImportCost,
@@ -264,7 +309,6 @@ export function getPeriodAnalysis(
       monthlyProduction: dailyProduction * 30,
       monthlyProfit: financial.monthlyProfit,
       selfConsumptionRate: financial.selfConsumptionRate,
-      roiYears: financial.roiYears,
       perApartmentMonthly: financial.perApartmentMonthly,
       gridExportRevenue: financial.gridExportRevenue,
       batterySavings: financial.batterySavings,
@@ -344,7 +388,8 @@ export function getPeriodAnalysis(
 export function getAnnualFinancialMetrics(
   panelCapacity,
   batteryCapacity,
-  apartmentCount
+  apartmentCount,
+  investmentCosts = INVESTMENT_COSTS
 ) {
   const period = getPeriodAnalysis(
     panelCapacity,
@@ -353,11 +398,9 @@ export function getAnnualFinancialMetrics(
     1,
     12
   );
-  const investment =
-    batteryCapacity * INVESTMENT_COSTS.batteryPerKwh +
-    panelCapacity * INVESTMENT_COSTS.panelPerKwp;
+  const investment = computeInvestment(panelCapacity, batteryCapacity, investmentCosts);
   const annualSavings = period.totalSavings;
-  const roiYears = annualSavings > 0 ? investment / annualSavings : Infinity;
+  const roiYears = computeRoiYears(investment, annualSavings);
 
   return {
     annualSavings,
