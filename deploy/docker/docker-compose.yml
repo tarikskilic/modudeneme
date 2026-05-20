@@ -14,17 +14,22 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=root_default
-      # HTTPS
+      - traefik.http.services.modugrid.loadbalancer.server.port=80
+      # HTTPS + Let's Encrypt (myhttpchallenge = Traefik ACME resolver)
       - traefik.http.routers.modugrid.rule=Host(`modu-grid.com`) || Host(`www.modu-grid.com`)
       - traefik.http.routers.modugrid.entrypoints=websecure
+      - traefik.http.routers.modugrid.service=modugrid
       - traefik.http.routers.modugrid.tls=true
       - traefik.http.routers.modugrid.tls.certresolver=myhttpchallenge
-      - traefik.http.services.modugrid.loadbalancer.server.port=80
-      # HTTP → HTTPS
+      - traefik.http.routers.modugrid.tls.domains[0].main=modu-grid.com
+      - traefik.http.routers.modugrid.tls.domains[0].sans=www.modu-grid.com
+      # HTTP → HTTPS (ACME challenge Traefik içinde öncelikli işlenir)
       - traefik.http.routers.modugrid-http.rule=Host(`modu-grid.com`) || Host(`www.modu-grid.com`)
       - traefik.http.routers.modugrid-http.entrypoints=web
+      - traefik.http.routers.modugrid-http.service=modugrid
       - traefik.http.routers.modugrid-http.middlewares=modugrid-redirect-https
       - traefik.http.middlewares.modugrid-redirect-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.modugrid-redirect-https.redirectscheme.permanent=true
 
 networks:
   root_default:
