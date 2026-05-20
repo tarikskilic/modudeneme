@@ -46,23 +46,11 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          touch ~/.ssh/known_hosts
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-          HOST="${{ steps.target.outputs.host }}"
-          ok=0
-          for attempt in 1 2 3 4 5; do
-            if ssh-keyscan -T 20 -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null && grep -q "$HOST" ~/.ssh/known_hosts; then
-              ok=1
-              break
-            fi
-            echo "ssh-keyscan attempt ${attempt}/5 failed, retrying in 5s..."
-            sleep 5
-          done
-          if [ "$ok" -ne 1 ]; then
-            echo "::warning::ssh-keyscan could not reach ${HOST}; SSH will use StrictHostKeyChecking=accept-new"
-          fi
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
 
       - name: Prepare release archive
         run: |
@@ -70,7 +58,7 @@ jobs:
 
       - name: Upload and apply on VPS
         env:
-          SSH_CMD: ssh -i ~/.ssh/deploy_key -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts
+          SSH_CMD: ssh -i ~/.ssh/deploy_key -o ConnectTimeout=30 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts
         run: |
           HOST="${{ steps.target.outputs.host }}"
           USER="${{ steps.target.outputs.user }}"
@@ -79,7 +67,7 @@ jobs:
           TARGET="${USER}@${HOST}"
 
           $SSH_CMD "$TARGET" "sudo mkdir -p '${APP_PATH}' '${COMPOSE_DIR}' && sudo chown -R ${USER}:www-data '${APP_PATH}'"
-          scp -i ~/.ssh/deploy_key -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts release.tar.gz "${TARGET}:/tmp/modu-grid-release.tar.gz"
+          scp -i ~/.ssh/deploy_key -o ConnectTimeout=30 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=~/.ssh/known_hosts release.tar.gz "${TARGET}:/tmp/modu-grid-release.tar.gz"
           $SSH_CMD "$TARGET" "set -eu
             cd /tmp
             rm -rf modu-grid-release && mkdir modu-grid-release
