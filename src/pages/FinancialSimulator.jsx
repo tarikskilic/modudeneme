@@ -23,10 +23,12 @@ import HardwareStatusBanner from '../components/HardwareStatusBanner.jsx';
 import Navbar from '../components/Navbar.jsx';
 import PeriodAnalysisTab from '../components/PeriodAnalysisTab.jsx';
 import Sidebar from '../components/Sidebar.jsx';
+import SliderValueInput from '../components/SliderValueInput.jsx';
 import {
   ELECTRICITY_PRICES,
   INVESTMENT_COSTS,
   LEGACY_BASELINE,
+  SLIDER_RANGES,
   scaleLegacyBaseline,
 } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
@@ -46,6 +48,11 @@ const MONTH_SHORT = [
   'Kas',
   'Ara',
 ];
+
+const PANEL = SLIDER_RANGES.panelCapacity;
+const BATTERY = SLIDER_RANGES.batteryCapacity;
+const BLOCK = SLIDER_RANGES.blockCount;
+const APT = SLIDER_RANGES.apartmentCount;
 
 const BATTERY_SCENARIOS = [
   { v: 0, title: 'Bataryasız', desc: 'Sadece Akıllı Yönetim' },
@@ -130,15 +137,15 @@ function panelSliderTheme(zone) {
   };
 }
 
-function batterySliderTheme(kwh, closest) {
-  if (closest === 500 || kwh >= 475) {
+function batterySliderTheme(kwh) {
+  if (kwh >= 475) {
     return {
       fill: '#10B981',
       thumb: '#10B981',
       glow: 'rgba(16, 185, 129, 0.32)',
     };
   }
-  if (closest === 250) {
+  if (kwh >= 125) {
     return {
       fill: '#10B981',
       thumb: '#3B82F6',
@@ -185,14 +192,25 @@ function ConfigSlider({
   fillPct,
   theme,
   onChange,
+  onValueChange,
   warning,
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-        {Icon ? <Icon className={`h-5 w-5 shrink-0 ${iconClass}`} strokeWidth={2} /> : null}
-        <span>{label}</span>
-        {warning}
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          {Icon ? <Icon className={`h-5 w-5 shrink-0 ${iconClass}`} strokeWidth={2} /> : null}
+          <span>{label}</span>
+          {warning}
+        </div>
+        <SliderValueInput
+          value={value}
+          min={min}
+          max={max}
+          unit={unit}
+          aria-label={`${label} manuel giriş`}
+          onChange={onValueChange}
+        />
       </div>
       <div className="relative pt-10">
         <motion.div
@@ -209,7 +227,7 @@ function ConfigSlider({
           className="modu-range modu-range-lg"
           min={min}
           max={max}
-          step={step}
+          step={1}
           value={value}
           style={{
             '--fill-pct': `${fillPct}%`,
@@ -285,18 +303,12 @@ export default function FinancialSimulator() {
 
   const pZone = panelZone(panelCapacity);
   const panelTheme = panelSliderTheme(pZone);
-  const panelFill = ((panelCapacity - 50) / (400 - 50)) * 100;
-  const batteryFill = batteryCapacity <= 0 ? 0 : (batteryCapacity / 500) * 100;
+  const panelFill = ((panelCapacity - PANEL.min) / (PANEL.max - PANEL.min)) * 100;
+  const batteryFill =
+    batteryCapacity <= 0 ? 0 : (batteryCapacity / BATTERY.max) * 100;
 
-  const closestBatteryScenario = useMemo(() => {
-    const pts = [0, 250, 500];
-    return pts.reduce((a, b) =>
-      Math.abs(b - batteryCapacity) < Math.abs(a - batteryCapacity) ? b : a
-    );
-  }, [batteryCapacity]);
-
-  const batteryTheme = batterySliderTheme(batteryCapacity, closestBatteryScenario);
-  const isSystemOptimal = pZone === 'ok' && closestBatteryScenario >= 250;
+  const batteryTheme = batterySliderTheme(batteryCapacity);
+  const isSystemOptimal = pZone === 'ok' && batteryCapacity >= 250;
 
   const optimalCfg = useCallback(() => {
     const startP = panelCapacity;
@@ -306,13 +318,15 @@ export default function FinancialSimulator() {
     animate(startP, 250, {
       duration: 0.95,
       ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setPanelCapacity(snap(v, 10, 50, 400)),
+      onUpdate: (v) =>
+        setPanelCapacity(snap(v, PANEL.step, PANEL.min, PANEL.max)),
     });
 
     animate(startB, 500, {
       duration: 0.95,
       ease: [0.22, 1, 0.36, 1],
-      onUpdate: (v) => setBatteryCapacity(snap(v, 50, 0, 500)),
+      onUpdate: (v) =>
+        setBatteryCapacity(snap(v, BATTERY.step, BATTERY.min, BATTERY.max)),
     });
 
     // Daire sayısını referans 100'e yumuşakça çek (zaten 100'deyse no-op)
@@ -320,7 +334,7 @@ export default function FinancialSimulator() {
       animate(startA, 100, {
         duration: 0.95,
         ease: [0.22, 1, 0.36, 1],
-        onUpdate: (v) => setApartmentCount(snap(v, 10, 20, 200)),
+        onUpdate: (v) => setApartmentCount(snap(v, APT.step, APT.min, APT.max)),
       });
     }
 
@@ -438,9 +452,9 @@ export default function FinancialSimulator() {
                           iconClass="text-amber-300"
                           value={panelCapacity}
                           unit="kWp"
-                          min={50}
-                          max={400}
-                          step={10}
+                          min={PANEL.min}
+                          max={PANEL.max}
+                          step={PANEL.step}
                           fillPct={panelFill}
                           theme={panelTheme}
                           warning={
@@ -458,8 +472,11 @@ export default function FinancialSimulator() {
                             ) : null
                           }
                           onChange={(e) =>
-                            setPanelCapacity(snap(Number(e.target.value), 10, 50, 400))
+                            setPanelCapacity(
+                              snap(Number(e.target.value), PANEL.step, PANEL.min, PANEL.max)
+                            )
                           }
+                          onValueChange={setPanelCapacity}
                         />
                         <div className="mt-4 grid grid-cols-1 gap-2 text-[11px] font-semibold sm:grid-cols-3">
                           <ZonePill
@@ -498,18 +515,26 @@ export default function FinancialSimulator() {
                           icon={Battery}
                           value={batteryCapacity}
                           unit="kWh"
-                          min={0}
-                          max={500}
-                          step={50}
+                          min={BATTERY.min}
+                          max={BATTERY.max}
+                          step={BATTERY.step}
                           fillPct={batteryFill}
                           theme={batteryTheme}
                           onChange={(e) =>
-                            setBatteryCapacity(snap(Number(e.target.value), 50, 0, 500))
+                            setBatteryCapacity(
+                              snap(
+                                Number(e.target.value),
+                                BATTERY.step,
+                                BATTERY.min,
+                                BATTERY.max
+                              )
+                            )
                           }
+                          onValueChange={setBatteryCapacity}
                         />
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           {BATTERY_SCENARIOS.map(({ v, title, desc }) => {
-                            const active = closestBatteryScenario === v;
+                            const active = batteryCapacity === v;
                             const isTarget = v === 500;
                             return (
                               <button
@@ -553,21 +578,29 @@ export default function FinancialSimulator() {
                           label="Blok Sayısı"
                           icon={Building2}
                           value={blockCount}
-                          min={1}
-                          max={10}
-                          step={1}
-                          onDec={() => setBlockCount((x) => clamp(x - 1, 1, 10))}
-                          onInc={() => setBlockCount((x) => clamp(x + 1, 1, 10))}
+                          min={BLOCK.min}
+                          max={BLOCK.max}
+                          onDec={() =>
+                            setBlockCount((x) => clamp(x - BLOCK.step, BLOCK.min, BLOCK.max))
+                          }
+                          onInc={() =>
+                            setBlockCount((x) => clamp(x + BLOCK.step, BLOCK.min, BLOCK.max))
+                          }
+                          onChange={setBlockCount}
                         />
                         <StepperControl
                           label="Daire Sayısı"
                           icon={Home}
                           value={apartmentCount}
-                          min={20}
-                          max={200}
-                          step={10}
-                          onDec={() => setApartmentCount((x) => clamp(x - 10, 20, 200))}
-                          onInc={() => setApartmentCount((x) => clamp(x + 10, 20, 200))}
+                          min={APT.min}
+                          max={APT.max}
+                          onDec={() =>
+                            setApartmentCount((x) => clamp(x - APT.step, APT.min, APT.max))
+                          }
+                          onInc={() =>
+                            setApartmentCount((x) => clamp(x + APT.step, APT.min, APT.max))
+                          }
+                          onChange={setApartmentCount}
                         />
                       </div>
 
@@ -841,7 +874,7 @@ function LegacyComparisonCard({ selfRate, monthlyProfit, roiYears, roiValid, leg
   );
 }
 
-function StepperControl({ label, icon: Icon, value, onDec, onInc }) {
+function StepperControl({ label, icon: Icon, value, min, max, onDec, onInc, onChange }) {
   return (
     <div className="rounded-xl border border-border bg-background/40 p-4">
       <div className="flex items-center justify-between gap-3">
@@ -858,14 +891,14 @@ function StepperControl({ label, icon: Icon, value, onDec, onInc }) {
           >
             <Minus className="h-4 w-4" strokeWidth={2.5} />
           </button>
-          <motion.span
-            key={value}
-            initial={{ scale: 0.92, opacity: 0.6 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="min-w-[2.75rem] text-center text-2xl font-bold tabular-nums text-foreground"
-          >
-            {value}
-          </motion.span>
+          <SliderValueInput
+            value={value}
+            min={min}
+            max={max}
+            aria-label={`${label} manuel giriş`}
+            inputClassName="w-[3.5rem] text-center text-lg font-bold"
+            onChange={onChange}
+          />
           <button
             type="button"
             className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-foreground transition hover:border-primary/40 hover:bg-primary/[0.08]"

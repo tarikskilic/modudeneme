@@ -87,7 +87,7 @@ export const SLIDER_RANGES = {
   panelCapacity: { min: 50, max: 400, step: 10 },
   batteryCapacity: { min: 0, max: 500, step: 50 },
   blockCount: { min: 1, max: 10, step: 1 },
-  apartmentCount: { min: 20, max: 200, step: 10 },
+  apartmentCount: { min: 20, max: 200, step: 1 },
 };
 
 /** Türkçe ay adları — döngü ve dropdown'lar için */

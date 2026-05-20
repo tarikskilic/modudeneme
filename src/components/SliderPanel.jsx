@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useSimulation } from '../context/SimulationContext.jsx';
 import { SLIDER_RANGES } from '../constants/simulationDefaults.js';
+import SliderValueInput from './SliderValueInput.jsx';
 
 const PANEL = SLIDER_RANGES.panelCapacity;
 const BATTERY = SLIDER_RANGES.batteryCapacity;
@@ -66,17 +67,14 @@ export default function SliderPanel() {
     return { tone: 'ok', label: 'Optimal aralık' };
   }, [panelCapacity]);
 
-  const batteryScenario = useMemo(() => {
-    const pts = [
+  const batteryPresets = useMemo(
+    () => [
       { v: 0, label: 'Bataryasız' },
       { v: 250, label: 'Minimum Optimum' },
       { v: 500, label: 'MODÜ-GRID Hedefi' },
-    ];
-    const closest = pts.reduce((a, b) =>
-      Math.abs(b.v - batteryCapacity) < Math.abs(a.v - batteryCapacity) ? b : a
-    );
-    return { pts, closest };
-  }, [batteryCapacity]);
+    ],
+    []
+  );
 
   return (
     <motion.section
@@ -86,7 +84,9 @@ export default function SliderPanel() {
       animate={{ opacity: 1, y: 0 }}
     >
       <h2 className="text-base font-semibold text-foreground">Sistem Parametreleri</h2>
-      <p className="mt-1 text-xs text-muted">Slider değişince simülasyon anında güncellenir.</p>
+      <p className="mt-1 text-xs text-muted">
+        Slider veya manuel giriş — simülasyon anında güncellenir.
+      </p>
 
       <div className="mt-6 space-y-8">
         {/* Panel */}
@@ -96,16 +96,21 @@ export default function SliderPanel() {
               <Sun className="h-4 w-4 text-success" />
               Panel Gücü
             </div>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {panelCapacity} kWp
-            </span>
+            <SliderValueInput
+              value={panelCapacity}
+              min={PANEL.min}
+              max={PANEL.max}
+              unit="kWp"
+              aria-label="Panel gücü manuel giriş"
+              onChange={(n) => setPanelCapacity(n)}
+            />
           </div>
           <input
             type="range"
             className="modu-range"
             min={PANEL.min}
             max={PANEL.max}
-            step={PANEL.step}
+            step={1}
             value={panelCapacity}
             style={{
               '--fill-pct': `${panelFill}%`,
@@ -142,16 +147,21 @@ export default function SliderPanel() {
               <Battery className="h-4 w-4 text-primary" />
               Batarya Kapasitesi
             </div>
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {batteryCapacity} kWh
-            </span>
+            <SliderValueInput
+              value={batteryCapacity}
+              min={BATTERY.min}
+              max={BATTERY.max}
+              unit="kWh"
+              aria-label="Batarya kapasitesi manuel giriş"
+              onChange={(n) => setBatteryCapacity(n)}
+            />
           </div>
           <input
             type="range"
             className="modu-range"
             min={BATTERY.min}
             max={BATTERY.max}
-            step={BATTERY.step}
+            step={1}
             value={batteryCapacity}
             style={{ '--fill-pct': `${batteryFill}%` }}
             onChange={(e) =>
@@ -163,8 +173,8 @@ export default function SliderPanel() {
             <span>{BATTERY.max}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {batteryScenario.pts.map((p) => {
-              const active = p.v === batteryScenario.closest.v;
+            {batteryPresets.map((p) => {
+              const active = batteryCapacity === p.v;
               return (
                 <button
                   key={p.v}
@@ -204,9 +214,14 @@ export default function SliderPanel() {
               >
                 −
               </button>
-              <span className="min-w-[2rem] text-center text-sm font-semibold tabular-nums">
-                {blockCount}
-              </span>
+              <SliderValueInput
+                value={blockCount}
+                min={BLOCK.min}
+                max={BLOCK.max}
+                aria-label="Blok sayısı manuel giriş"
+                inputClassName="w-[3rem] text-center"
+                onChange={(n) => setBlockCount(n)}
+              />
               <button
                 type="button"
                 className="touch-target inline-flex items-center justify-center rounded-lg border border-border bg-background text-foreground hover:border-primary/40"
@@ -253,9 +268,14 @@ export default function SliderPanel() {
               >
                 −
               </button>
-              <span className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums">
-                {apartmentCount}
-              </span>
+              <SliderValueInput
+                value={apartmentCount}
+                min={APT.min}
+                max={APT.max}
+                aria-label="Daire sayısı manuel giriş"
+                inputClassName="w-[3.25rem] text-center"
+                onChange={(n) => setApartmentCount(n)}
+              />
               <button
                 type="button"
                 className="touch-target inline-flex items-center justify-center rounded-lg border border-border bg-background text-foreground hover:border-primary/40"
@@ -274,9 +294,7 @@ export default function SliderPanel() {
             step={APT.step}
             value={apartmentCount}
             style={{ '--fill-pct': `${aptFill}%` }}
-            onChange={(e) =>
-              setApartmentCount(snap(Number(e.target.value), APT.step, APT.min, APT.max))
-            }
+            onChange={(e) => setApartmentCount(Number(e.target.value))}
           />
           <div className="mt-1 flex justify-between text-[11px] tabular-nums text-muted">
             <span>{APT.min}</span>
