@@ -3,8 +3,11 @@ import { motion } from 'framer-motion';
 import {
   Battery,
   Building2,
+  CalendarDays,
   CheckCircle2,
   Home,
+  Leaf,
+  Receipt,
   ShieldCheck,
   Sun,
   TrendingUp,
@@ -26,9 +29,11 @@ import Navbar from '../components/Navbar.jsx';
 import { ELECTRICITY_PRICES } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
 import {
+  getCarbonMetrics,
   getDailyConsumption,
   getDailyProduction,
   getFinancialMetrics,
+  getPeriodAnalysis,
 } from '../utils/energyCalculations.js';
 
 const LAST_CHECK = 'bugün 14:32';
@@ -127,6 +132,31 @@ export default function ResidentDashboard() {
   const lastMonthKwh = daireTüketimi / (1 + consTrendPct / 100);
   const daireTasarrufu =
     (selfConsumptionRate / 100) * daireTüketimi * ELECTRICITY_PRICES.directAvoided;
+
+  // Aylık fatura tahmini: tüketim × alış-tarifesi − tasarruf (net ödenecek)
+  const baselineFaturaTl = daireTüketimi * ELECTRICITY_PRICES.gridImport;
+  const netFaturaTl = Math.max(0, baselineFaturaTl - daireTasarrufu);
+
+  // Yıllık kümülatif daire tasarrufu — 12 ay gerçek toplam × variation
+  const yearlyApt = useMemo(() => {
+    const period = getPeriodAnalysis(panelCapacity, batteryCapacity, apartmentCount, 1, 12);
+    const perAptYearly = apartmentCount > 0
+      ? (period.totalSavings / apartmentCount) * variation
+      : 0;
+    return {
+      savingsTl: perAptYearly,
+      months: period.periodMonths,
+    };
+  }, [panelCapacity, batteryCapacity, apartmentCount, variation]);
+
+  // Bu ay engellenen CO₂ — daire payı (sitenin engellediği / daire × variation)
+  const aptMonthlyCO2 = useMemo(() => {
+    const dailyProd = getDailyProduction(panelCapacity, selectedMonth);
+    const c = getCarbonMetrics(dailyProd, selfConsumptionRate);
+    return apartmentCount > 0
+      ? (c.monthlyCO2Saved / apartmentCount) * variation
+      : 0;
+  }, [panelCapacity, selectedMonth, selfConsumptionRate, apartmentCount, variation]);
 
   const blockIndex = useMemo(() => {
     const n = blockCount > 0 ? blockCount : 1;
@@ -279,6 +309,13 @@ export default function ResidentDashboard() {
               <p className="mt-3 text-xs font-semibold text-success/90">
                 Geçen aya göre +%{Math.round(trendPct)}
               </p>
+              <p className="mt-2 flex items-center gap-1.5 border-t border-border pt-2 text-[11px] tabular-nums text-muted">
+                <Receipt className="h-3 w-3 shrink-0 text-muted-light" strokeWidth={2} aria-hidden />
+                Bu ayki fatura tahmini:{' '}
+                <span className="font-semibold text-foreground/90">
+                  ₺ {Math.round(netFaturaTl).toLocaleString('tr-TR')}
+                </span>
+              </p>
             </motion.section>
 
             <motion.section
@@ -329,6 +366,51 @@ export default function ResidentDashboard() {
               </div>
               <p className="mt-3 text-[11px] tabular-nums text-muted-light">
                 Son kontrol: {LAST_CHECK}
+              </p>
+            </motion.section>
+          </motion.div>
+
+          {/* 2. KPI satırı — uzun vadeli ve etki */}
+          <motion.div
+            variants={container}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2"
+          >
+            <motion.section
+              variants={item}
+              className="rounded-2xl border border-border bg-card p-5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-muted-light">Yıllık Tasarruf Tahmini</p>
+                  <div className="mt-2 text-2xl font-bold tabular-nums text-success sm:text-3xl">
+                    ₺ {Math.round(yearlyApt.savingsTl).toLocaleString('tr-TR')}
+                  </div>
+                </div>
+                <CalendarDays className="h-5 w-5 shrink-0 text-success" strokeWidth={2} aria-hidden />
+              </div>
+              <p className="mt-3 text-[11px] text-muted">
+                12 ay simülasyonun daire başı payı (mevsim ağırlıklı toplam)
+              </p>
+            </motion.section>
+
+            <motion.section
+              variants={item}
+              className="rounded-2xl border border-border bg-card p-5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-xs font-medium text-muted-light">Bu Ay Engellediğin CO₂</p>
+                  <div className="mt-2 text-2xl font-bold tabular-nums text-success sm:text-3xl">
+                    {Math.round(aptMonthlyCO2).toLocaleString('tr-TR')}{' '}
+                    <span className="text-base text-muted-light">kg</span>
+                  </div>
+                </div>
+                <Leaf className="h-5 w-5 shrink-0 text-success" strokeWidth={2} aria-hidden />
+              </div>
+              <p className="mt-3 text-[11px] text-muted">
+                Senin payına düşen aylık atmosfer tasarrufu
               </p>
             </motion.section>
           </motion.div>

@@ -619,6 +619,18 @@ export default function EnergyFlowDiagram({
         </div>
       </div>
 
+      <div className="relative z-[3] mx-3 mb-3 flex flex-wrap items-center justify-center gap-3 rounded-lg border border-border/60 bg-background/70 px-3 py-2 text-[10px] text-muted sm:mx-4 sm:mb-4 sm:gap-4 lg:hidden">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-success" /> Panel
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-primary" /> Batarya
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-warning" /> Şebeke
+        </span>
+      </div>
+
       <div className="relative z-[3] mx-4 mb-4 hidden flex-wrap items-center gap-4 rounded-lg border border-border/60 bg-background/70 px-3 py-2 text-[10px] text-muted lg:flex">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-success" /> Panel

@@ -30,7 +30,7 @@ import {
   scaleLegacyBaseline,
 } from '../constants/simulationDefaults.js';
 import { useSimulation } from '../context/SimulationContext.jsx';
-import { getFinancialMetrics } from '../utils/energyCalculations.js';
+import { getFinancialMetrics, getPeriodAnalysis } from '../utils/energyCalculations.js';
 
 const MONTH_SHORT = [
   'Oca',
@@ -253,6 +253,17 @@ export default function FinancialSimulator() {
       panelCapacity * INVESTMENT_COSTS.panelPerKwp,
     [batteryCapacity, panelCapacity]
   );
+
+  // 12 ay gerçek toplam — seçili ay × 365 ekstrapolasyonu yerine mevsim ağırlıklı
+  const yearlyTrue = useMemo(() => {
+    const period = getPeriodAnalysis(panelCapacity, batteryCapacity, apartmentCount, 1, 12);
+    const annualSavings = period.totalSavings;
+    const trueRoi = annualSavings > 0 ? investment / annualSavings : Infinity;
+    return { annualSavings, trueRoi };
+  }, [panelCapacity, batteryCapacity, apartmentCount, investment]);
+
+  const yearlyTrueRoiFinite =
+    Number.isFinite(yearlyTrue.trueRoi) && yearlyTrue.trueRoi < 1e6;
 
   const monthlySpring = useSpringNumber(metrics.monthlyProfit);
   const selfSpring = useSpringNumber(metrics.selfConsumptionRate);
@@ -714,9 +725,20 @@ export default function FinancialSimulator() {
                             ₺ {formatTl0(metrics.monthlyProfit)}
                           </span>
                           <span className="mx-2 text-border-strong">|</span>
-                          Yıllık:{' '}
+                          Yıllık (seçili ay × 365):{' '}
                           <span className="font-semibold text-success">
                             ₺ {formatTl0(metrics.yearlyProfit)}
+                          </span>
+                        </p>
+                        <p className="mt-1.5 border-t border-success/15 pt-1.5 text-center text-[11px] tabular-nums text-muted sm:text-left">
+                          12 ay gerçek toplam (mevsim ağırlıklı):{' '}
+                          <span className="font-semibold text-foreground">
+                            ₺ {formatTl0(yearlyTrue.annualSavings)}
+                          </span>
+                          <span className="mx-2 text-border-strong">|</span>
+                          ROI:{' '}
+                          <span className="font-semibold text-foreground">
+                            {yearlyTrueRoiFinite ? `${yearlyTrue.trueRoi.toFixed(1)} Yıl` : '—'}
                           </span>
                         </p>
                       </div>

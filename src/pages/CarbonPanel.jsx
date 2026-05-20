@@ -326,9 +326,12 @@ export default function CarbonPanel() {
               </section>
 
               <section className="rounded-xl border border-border bg-card p-5">
-                <h2 className="text-base font-semibold text-foreground">
-                  Karbon Yoğunluğu Karşılaştırması
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-foreground">
+                    Karbon Yoğunluğu Karşılaştırması
+                  </h2>
+                  <ProxyInfoTooltip />
+                </div>
                 <p className="mt-1 text-xs text-muted">Geleneksel site vs MODÜ-GRID</p>
 
                 <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-4">
@@ -412,7 +415,7 @@ export default function CarbonPanel() {
                   />
                 </div>
 
-                <div className="relative mt-8 grid grid-cols-4 gap-1 text-center">
+                <div className="relative mt-8 grid grid-cols-2 gap-2 text-center sm:grid-cols-4 sm:gap-1">
                   {milestones.map((m) => (
                     <div
                       key={m.at}
@@ -538,6 +541,34 @@ function ComplianceBadge({ label, tone }) {
     >
       <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
       {label}
+    </span>
+  );
+}
+
+function ProxyInfoTooltip() {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        onBlur={() => setOpen(false)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full text-muted-light transition hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        aria-label="Karşılaştırma formülü hakkında bilgi"
+        aria-expanded={open}
+      >
+        <Info className="h-4 w-4" strokeWidth={2} aria-hidden />
+      </button>
+      {open && (
+        <span
+          role="tooltip"
+          className="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2 rounded-lg border border-border bg-card px-3 py-2 text-[11px] leading-relaxed text-foreground/90 shadow-xl"
+        >
+          MODÜ emisyonu = geleneksel baseline × (1 − öz-tüketim oranı). Yukarıdaki "Engellenen CO₂" hero kartı ile aynı slider'dan beslenir ama farklı yöntemle hesaplanan bir göstergedir.
+        </span>
+      )}
     </span>
   );
 }
