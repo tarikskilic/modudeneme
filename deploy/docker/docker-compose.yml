@@ -1,0 +1,31 @@
+# Traefik (Docker) ile statik MODÜ-GRID — VPS'te root_default ağında çalışır.
+# Kurulum: deploy/deploy-traefik.sh
+
+services:
+  modu-grid:
+    image: nginx:alpine
+    container_name: modu-grid
+    restart: unless-stopped
+    volumes:
+      - /var/www/modu-grid:/usr/share/nginx/html:ro
+      - ./nginx-spa.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - root_default
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=root_default
+      # HTTPS
+      - traefik.http.routers.modugrid.rule=Host(`modu-grid.com`) || Host(`www.modu-grid.com`)
+      - traefik.http.routers.modugrid.entrypoints=websecure
+      - traefik.http.routers.modugrid.tls=true
+      - traefik.http.routers.modugrid.tls.certresolver=myhttpchallenge
+      - traefik.http.services.modugrid.loadbalancer.server.port=80
+      # HTTP → HTTPS
+      - traefik.http.routers.modugrid-http.rule=Host(`modu-grid.com`) || Host(`www.modu-grid.com`)
+      - traefik.http.routers.modugrid-http.entrypoints=web
+      - traefik.http.routers.modugrid-http.middlewares=modugrid-redirect-https
+      - traefik.http.middlewares.modugrid-redirect-https.redirectscheme.scheme=https
+
+networks:
+  root_default:
+    external: true
