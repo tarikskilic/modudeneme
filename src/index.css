@@ -1,0 +1,264 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: Inter, system-ui, sans-serif;
+  }
+
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* PRODUCT.md §4.5 — responsive layout */
+@layer components {
+  .shell-admin {
+    min-height: 100vh;
+    padding-top: calc(4rem + 2.25rem);
+  }
+
+  @media (min-width: 1024px) {
+    .shell-admin {
+      padding-left: 15rem;
+    }
+  }
+
+  .shell-resident {
+    min-height: 100vh;
+    padding-top: calc(4rem + 2.75rem);
+  }
+
+  .page-inner {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    max-width: 1440px;
+    padding: 1.25rem 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .page-inner {
+      padding: 1.5rem;
+    }
+  }
+
+  .page-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #f9fafb;
+  }
+
+  @media (min-width: 640px) {
+    .page-title {
+      font-size: 1.5rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .page-title {
+      font-size: 1.875rem;
+    }
+  }
+
+  .chart-panel {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    width: calc(100% + 0.5rem);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (min-width: 640px) {
+    .chart-panel {
+      margin-left: 0;
+      margin-right: 0;
+      width: 100%;
+      overflow-x: visible;
+    }
+  }
+
+  .chart-h-sm {
+    height: 220px;
+    min-width: 280px;
+  }
+
+  @media (min-width: 640px) {
+    .chart-h-sm {
+      height: 260px;
+      min-width: 0;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .chart-h-sm {
+      height: 300px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .chart-h-sm {
+      height: 320px;
+    }
+  }
+
+  .chart-h-md {
+    height: 240px;
+    min-width: 300px;
+  }
+
+  @media (min-width: 640px) {
+    .chart-h-md {
+      height: 300px;
+      min-width: 0;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .chart-h-md {
+      height: 340px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .chart-h-md {
+      height: 380px;
+    }
+  }
+
+  .pill-scroll {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pill-scroll > * {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+@keyframes flowDots {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.flow-line-active {
+  animation: flowDots var(--flow-duration, 1.6s) linear infinite;
+}
+
+input[type='range'].energy-timeline::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.2),
+    0 0 16px rgba(59, 130, 246, 0.55);
+}
+
+/* Range sliders — MODÜ-GRID kontrol paneli */
+input[type='range'].modu-range.modu-range-lg {
+  height: 10px;
+}
+
+input[type='range'].modu-range.modu-range-lg::-webkit-slider-runnable-track {
+  height: 10px;
+}
+
+input[type='range'].modu-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  background: transparent;
+}
+
+input[type='range'].modu-range:focus {
+  outline: none;
+}
+
+input[type='range'].modu-range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: linear-gradient(
+      to right,
+      var(--range-fill, #3b82f6) 0%,
+      var(--range-fill, #3b82f6) var(--fill-pct, 0%),
+      #1f2937 var(--fill-pct, 0%),
+      #1f2937 100%
+    )
+    #1f2937;
+}
+
+input[type='range'].modu-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--thumb-color, #3b82f6);
+  border: 2px solid #0a0f1e;
+  margin-top: -7px;
+  box-shadow: 0 0 0 4px var(--thumb-glow, rgba(59, 130, 246, 0.18));
+  cursor: grab;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+input[type='range'].modu-range:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+input[type='range'].modu-range::-moz-range-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: #1f2937;
+}
+
+input[type='range'].modu-range::-moz-range-progress {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--range-fill, #3b82f6);
+}
+
+input[type='range'].modu-range::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--thumb-color, #3b82f6);
+  border: 2px solid #0a0f1e;
+  box-shadow: 0 0 0 4px var(--thumb-glow, rgba(59, 130, 246, 0.18));
+  cursor: grab;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+@keyframes metrics-optimal-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+  50% {
+    box-shadow: 0 0 28px 2px rgba(16, 185, 129, 0.22);
+  }
+}
+
+.metrics-optimal-pulse {
+  animation: metrics-optimal-pulse 2.4s ease-in-out infinite;
+}
+
