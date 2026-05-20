@@ -186,7 +186,7 @@ export default function CarbonPanel() {
       <HardwareStatusBanner />
       <Sidebar />
 
-      <main className="shell-admin">
+      <main className="shell-admin lg:pl-[240px]">
         <div className="page-inner space-y-6 sm:space-y-8">
           <header className="mb-8">
             <div className="flex items-center gap-2.5">

@@ -134,7 +134,7 @@ export default function Comparison() {
       <HardwareStatusBanner />
       <Sidebar />
 
-      <main className="shell-admin">
+      <main className="shell-admin lg:pl-[240px]">
         <div className="page-inner space-y-8 md:space-y-10">
           {/* TOP ROW — Screen header */}
           <motion.header

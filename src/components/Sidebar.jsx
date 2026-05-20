@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { ADMIN_NAV_ITEMS } from './navItems.js';
 
 function isItemActive(pathname, to, end) {
@@ -23,19 +22,12 @@ export default function Sidebar() {
               key={to}
               to={to}
               className={[
-                'group relative flex items-center gap-3 rounded-r-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'group relative flex items-center gap-3 rounded-r-lg border-l-[3px] px-3 py-2.5 text-sm font-medium transition-colors',
                 active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted hover:bg-primary/5 hover:text-foreground',
+                  ? 'border-l-primary bg-primary/10 text-primary'
+                  : 'border-l-transparent text-muted hover:bg-primary/5 hover:text-foreground',
               ].join(' ')}
             >
-              {active && (
-                <motion.span
-                  layoutId="sidebar-active-bar"
-                  className="absolute bottom-1 left-0 top-1 w-[3px] rounded-full bg-primary"
-                  transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-                />
-              )}
               <Icon
                 className={`h-5 w-5 shrink-0 ${active ? 'text-primary' : ''}`}
                 strokeWidth={2}

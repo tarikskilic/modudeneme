@@ -21,7 +21,8 @@
 
   @media (min-width: 1024px) {
     .shell-admin {
-      padding-left: 15rem;
+      /* Sidebar.jsx w-[240px] — must match admin-chrome offset */
+      padding-left: 240px;
     }
   }
 

@@ -87,7 +87,7 @@ export default function AdminDashboard() {
       <Navbar />
       <HardwareStatusBanner />
       <Sidebar />
-      <main className="shell-admin">
+      <main className="shell-admin lg:pl-[240px]">
         <div className="page-inner space-y-6 sm:space-y-8">
           <div>
             <h1 className="page-title">Kontrol Paneli</h1>

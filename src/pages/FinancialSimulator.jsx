@@ -365,7 +365,7 @@ export default function FinancialSimulator() {
       <Navbar />
       <HardwareStatusBanner />
       <Sidebar />
-      <main className="shell-admin">
+      <main className="shell-admin lg:pl-[240px]">
         <div className="page-inner space-y-6 sm:space-y-8">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="min-w-0">

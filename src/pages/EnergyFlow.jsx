@@ -73,7 +73,7 @@ export default function EnergyFlow() {
         <Navbar />
         <HardwareStatusBanner />
         <Sidebar />
-        <main className="shell-admin">
+        <main className="shell-admin lg:pl-[240px]">
           <div className="page-inner text-muted">Veri yükleniyor…</div>
         </main>
       </div>
@@ -85,7 +85,7 @@ export default function EnergyFlow() {
       <Navbar />
       <HardwareStatusBanner />
       <Sidebar />
-      <main className="shell-admin">
+      <main className="shell-admin lg:pl-[240px]">
         <div className="page-inner space-y-6">
           <motion.header
             initial={{ opacity: 0, y: 10 }}

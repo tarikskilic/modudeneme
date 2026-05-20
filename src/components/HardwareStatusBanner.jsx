@@ -45,7 +45,7 @@ export default function HardwareStatusBanner() {
   return (
     <>
       <div
-        className="fixed left-0 right-0 top-16 z-30 flex h-9 min-h-[36px] w-full items-center justify-between gap-2 border-b border-danger/20 px-3 text-[11px] sm:px-6 sm:text-xs"
+        className="fixed left-0 right-0 top-16 z-30 flex h-9 min-h-[36px] w-full items-center justify-between gap-2 border-b border-danger/20 px-3 text-[11px] sm:px-6 sm:text-xs lg:left-[240px] lg:w-auto"
         style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
       >
         <div className="flex min-w-0 flex-1 items-center gap-2">
